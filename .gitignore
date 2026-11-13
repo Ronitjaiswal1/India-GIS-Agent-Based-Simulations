@@ -1,0 +1,16 @@
+# Separate repository
+Traffic_Impedance_System_clean/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# NetLogo temporary files
+.*.tmp.nlogo
+
+# OS / editor
+Thumbs.db
+.DS_Store

@@ -1,0 +1,19 @@
+﻿# Instructions to Extract India Data
+
+If you have QGIS installed, you can automatically filter the data for India:
+
+1. Open QGIS
+2. Load the countries shapefile: data/countries/ne_50m_admin_0_countries.shp
+3. Open the attribute table
+4. Use 'Select by expression' and enter: "NAME" = 'India'
+5. Right-click the layer â†’ Export â†’ Save Selected Features As
+6. Save as 'india_boundary.shp' in the data folder
+
+For states:
+1. Load the states shapefile: data/states/ne_50m_admin_1_states_provinces.shp
+2. Use 'Select by expression' and enter: "admin" = 'India'
+3. Export selected features as 'india_states.shp' in the data folder
+
+Alternative: Manual download from these working links:
+- Countries: https://naciscdn.org/naturalearth/50m/cultural/ne_50m_admin_0_countries.zip
+- States: https://naciscdn.org/naturalearth/50m/cultural/ne_50m_admin_1_states_provinces_lakes.zip

@@ -1,0 +1,383 @@
+; NetLogo Include File for Real GIS Data Integration
+; This file demonstrates how to load and use real GIS data in NetLogo
+
+; Include this file in your main NetLogo model with:
+; __includes ["gis_data_loader.nls"]
+
+; Global variables for real GIS data
+globals [
+  ; Real GIS datasets
+  real-states-dataset
+  real-cities-dataset
+  real-rivers-dataset
+  
+  ; Data tables
+  state-population-table
+  city-data-table
+  
+  ; Projection parameters
+  gis-envelope
+  world-projection
+]
+
+; Load real GIS data from files
+to load-real-gis-data
+  print "Loading real GIS data..."
+  
+  ; Load state boundaries
+  if file-exists? "gis_data/admin_1_states/ne_10m_admin_1_states_provinces.shp" [
+    set real-states-dataset gis:load-dataset "gis_data/admin_1_states/ne_10m_admin_1_states_provinces.shp"
+    
+    ; Filter for India only
+    set real-states-dataset gis:find-features real-states-dataset "admin" "India"
+    
+    print "Indian states loaded successfully"
+  ]
+  
+  ; Load cities
+  if file-exists? "gis_data/populated_places/ne_10m_populated_places.shp" [
+    set real-cities-dataset gis:load-dataset "gis_data/populated_places/ne_10m_populated_places.shp"
+    
+    ; Filter for Indian cities
+    set real-cities-dataset gis:find-features real-cities-dataset "ADM0NAME" "India"
+    
+    print "Indian cities loaded successfully"
+  ]
+  
+  ; Load rivers
+  if file-exists? "gis_data/rivers/ne_10m_rivers_lake_centerlines.shp" [
+    set real-rivers-dataset gis:load-dataset "gis_data/rivers/ne_10m_rivers_lake_centerlines.shp"
+    print "Rivers loaded successfully"
+  ]
+  
+  ; Set up world envelope based on GIS data
+  setup-gis-world-envelope
+end
+
+; Setup world envelope from GIS data
+to setup-gis-world-envelope
+  if real-states-dataset != 0 [
+    ; Get envelope from states dataset
+    set gis-envelope gis:envelope-of real-states-dataset
+    
+    ; Set world envelope to match GIS data
+    gis:set-world-envelope gis-envelope
+    
+    print "World envelope set from GIS data"
+  ]
+end
+
+; Apply real GIS data to patches
+to apply-real-gis-data-to-patches
+  print "Applying GIS data to patches..."
+  
+  ; Initialize all patches
+  ask patches [
+    set state-name "Unknown"
+    set population-density 0
+    set elevation-value 0
+    set is-urban false
+  ]
+  
+  ; Apply state boundaries
+  if real-states-dataset != 0 [
+    foreach gis:feature-list-of real-states-dataset [ state-feature ->
+      let state-name-value gis:property-value state-feature "name"
+      let state-type gis:property-value state-feature "type"
+      
+      ; Get patches that intersect with this state
+      let state-patches gis:patch-set state-feature
+      
+      ask state-patches [
+        set state-name state-name-value
+        
+        ; Set population density based on known data
+        set population-density get-state-population-density state-name-value
+        
+        ; Determine if urban based on state type and population
+        if state-type = "Federal District" or population-density > 500 [
+          set is-urban true
+        ]
+      ]
+    ]
+  ]
+  
+  print "GIS data applied to patches successfully"
+end
+
+; Create cities from real GIS data
+to create-cities-from-gis-data
+  print "Creating cities from GIS data..."
+  
+  if real-cities-dataset != 0 [
+    foreach gis:feature-list-of real-cities-dataset [ city-feature ->
+      let city-name-value gis:property-value city-feature "NAME"
+      let city-pop gis:property-value city-feature "POP_MAX"
+      let city-location gis:location-of city-feature
+      
+      ; Only create city if location is within world bounds
+      if city-location != nobody [
+        let city-x item 0 city-location
+        let city-y item 1 city-location
+        
+        ; Create city agent
+        create-cities 1 [
+          setxy city-x city-y
+          set city-name city-name-value
+          set city-population city-pop
+          
+          ; Determine city type based on population
+          if city-pop > 1000000 [
+            set city-type "metro"
+            set color red
+            set size 3
+          ] [
+            if city-pop > 500000 [
+              set city-type "urban"
+              set color orange
+              set size 2
+            ] [
+              set city-type "rural"
+              set color yellow
+              set size 1
+            ]
+          ]
+          
+          set shape "circle"
+        ]
+      ]
+    ]
+  ]
+  
+  print (word "Created " count cities " cities from GIS data")
+end
+
+; Draw rivers on the map
+to draw-rivers
+  if real-rivers-dataset != 0 [
+    gis:set-drawing-color blue
+    gis:draw real-rivers-dataset 1
+    print "Rivers drawn on map"
+  ]
+end
+
+; Get population density for a state (mock data - replace with real data)
+to-report get-state-population-density [state-name]
+  ; This would ideally load from a real dataset
+  ; For now, using mock data
+  let pop-density 100  ; default
+  
+  if state-name = "Delhi" [ set pop-density 11320 ]
+  if state-name = "West Bengal" [ set pop-density 1028 ]
+  if state-name = "Bihar" [ set pop-density 1106 ]
+  if state-name = "Kerala" [ set pop-density 860 ]
+  if state-name = "Uttar Pradesh" [ set pop-density 828 ]
+  if state-name = "Haryana" [ set pop-density 573 ]
+  if state-name = "Tamil Nadu" [ set pop-density 555 ]
+  if state-name = "Punjab" [ set pop-density 551 ]
+  if state-name = "Maharashtra" [ set pop-density 365 ]
+  if state-name = "Karnataka" [ set pop-density 319 ]
+  if state-name = "Gujarat" [ set pop-density 308 ]
+  if state-name = "Andhra Pradesh" [ set pop-density 308 ]
+  if state-name = "Rajasthan" [ set pop-density 200 ]
+  if state-name = "Madhya Pradesh" [ set pop-density 236 ]
+  ; Add more states as needed
+  
+  report pop-density
+end
+
+; Load CSV data files
+to load-csv-data-files
+  ; Load state population data
+  if file-exists? "gis_data/indian_population_density.csv" [
+    set state-population-table table:make
+    
+    file-open "gis_data/indian_population_density.csv"
+    let header file-read-line  ; Skip header
+    
+    while [not file-at-end?] [
+      let line file-read-line
+      let data split line ","
+      
+      if length data >= 2 [
+        let state-name-csv item 0 data
+        let pop-density-csv read-from-string item 1 data
+        table:put state-population-table state-name-csv pop-density-csv
+      ]
+    ]
+    
+    file-close
+    print "Population density data loaded from CSV"
+  ]
+  
+  ; Load cities data
+  if file-exists? "gis_data/indian_major_cities.csv" [
+    set city-data-table table:make
+    
+    file-open "gis_data/indian_major_cities.csv"
+    let header file-read-line  ; Skip header
+    
+    while [not file-at-end?] [
+      let line file-read-line
+      let data split line ","
+      
+      if length data >= 6 [
+        let city-name-csv item 0 data
+        let city-state item 1 data
+        let city-lat read-from-string item 2 data
+        let city-lon read-from-string item 3 data
+        let city-pop read-from-string item 4 data
+        let city-type-csv item 5 data
+        
+        table:put city-data-table city-name-csv (list city-state city-lat city-lon city-pop city-type-csv)
+      ]
+    ]
+    
+    file-close
+    print "Cities data loaded from CSV"
+  ]
+end
+
+; Create cities from CSV data
+to create-cities-from-csv
+  if city-data-table != 0 [
+    let city-names table:keys city-data-table
+    
+    foreach city-names [ city-name ->
+      let city-info table:get city-data-table city-name
+      let city-state item 0 city-info
+      let city-lat item 1 city-info
+      let city-lon item 2 city-info
+      let city-pop item 3 city-info
+      let city-type-csv item 4 city-info
+      
+      ; Convert lat/lon to NetLogo coordinates
+      let netlogo-coords convert-latlon-to-netlogo city-lat city-lon
+      let netlogo-x item 0 netlogo-coords
+      let netlogo-y item 1 netlogo-coords
+      
+      ; Create city if within world bounds
+      if netlogo-x >= min-pxcor and netlogo-x <= max-pxcor and
+         netlogo-y >= min-pycor and netlogo-y <= max-pycor [
+        create-cities 1 [
+          setxy netlogo-x netlogo-y
+          set city-name city-name
+          set city-population city-pop
+          set city-type city-type-csv
+          
+          ; Set appearance based on type
+          if city-type-csv = "metro" [
+            set color red
+            set size 3
+          ] [
+            set color orange
+            set size 2
+          ]
+          
+          set shape "circle"
+        ]
+      ]
+    ]
+    
+    print (word "Created " count cities " cities from CSV data")
+  ]
+end
+
+; Convert lat/lon to NetLogo coordinates (simplified)
+to-report convert-latlon-to-netlogo [lat lon]
+  ; This is a simplified conversion
+  ; In a real implementation, you'd use proper projection
+  
+  ; India bounds approximately: 6.5°N to 37°N, 68°E to 97.5°E
+  let min-lat 6.5
+  let max-lat 37
+  let min-lon 68
+  let max-lon 97.5
+  
+  ; NetLogo world size
+  let world-width max-pxcor - min-pxcor
+  let world-height max-pycor - min-pycor
+  
+  ; Convert to NetLogo coordinates
+  let netlogo-x min-pxcor + (lon - min-lon) / (max-lon - min-lon) * world-width
+  let netlogo-y min-pycor + (lat - min-lat) / (max-lat - min-lat) * world-height
+  
+  report (list netlogo-x netlogo-y)
+end
+
+; Get population density from table
+to-report get-population-from-table [state-name]
+  if state-population-table != 0 and table:has-key? state-population-table state-name [
+    report table:get state-population-table state-name
+  ]
+  report 100  ; default value
+end
+
+; Export GIS data to various formats
+to export-gis-data
+  ; Export to CSV
+  export-patches-to-csv
+  export-cities-to-csv
+  
+  ; Export to KML (for Google Earth)
+  export-to-kml
+end
+
+to export-patches-to-csv
+  file-open "exports/patches_data.csv"
+  file-print "x,y,state,population_density,elevation,is_urban"
+  
+  ask patches [
+    file-print (word pxcor "," pycor "," state-name "," population-density "," elevation-value "," is-urban)
+  ]
+  
+  file-close
+  print "Patches data exported to CSV"
+end
+
+to export-cities-to-csv
+  file-open "exports/cities_data.csv"
+  file-print "city,x,y,population,type"
+  
+  ask cities [
+    file-print (word city-name "," xcor "," ycor "," city-population "," city-type)
+  ]
+  
+  file-close
+  print "Cities data exported to CSV"
+end
+
+to export-to-kml
+  ; This would create a KML file for Google Earth
+  ; Implementation would depend on specific requirements
+  print "KML export functionality would be implemented here"
+end
+
+; Utility function to split strings
+to-report split [string delimiter]
+  let result []
+  let current-word ""
+  let string-length length string
+  
+  let i 0
+  while [i < string-length] [
+    let char substring string i (i + 1)
+    
+    if char = delimiter [
+      if current-word != "" [
+        set result lput current-word result
+        set current-word ""
+      ]
+    ] [
+      set current-word (word current-word char)
+    ]
+    
+    set i i + 1
+  ]
+  
+  if current-word != "" [
+    set result lput current-word result
+  ]
+  
+  report result
+end

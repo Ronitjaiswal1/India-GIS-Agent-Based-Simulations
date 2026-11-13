@@ -1,0 +1,254 @@
+
+; NetLogo procedures for loading Indian GIS data
+; Include this file in your main model with: __includes ["gis_data/netlogo_data_loader.nls"]
+
+extensions [table]
+
+globals [
+  states-data-table
+  cities-data-table
+  states-coordinates-table
+]
+
+to load-indian-gis-data
+  print "Loading Indian GIS data..."
+  
+  ; Load states data
+  load-states-data
+  
+  ; Load cities data
+  load-cities-data
+  
+  ; Load coordinate mappings
+  load-coordinates-data
+  
+  print "Indian GIS data loaded successfully!"
+end
+
+to load-states-data
+  set states-data-table table:make
+  
+  if file-exists? "gis_data/indian_states_data.csv" [
+    file-open "gis_data/indian_states_data.csv"
+    let header file-read-line  ; Skip header
+    
+    while [not file-at-end?] [
+      let line file-read-line
+      let data split line ","
+      
+      if length data >= 6 [
+        let state-name item 0 data
+        let state-code item 1 data
+        let lat read-from-string item 2 data
+        let lon read-from-string item 3 data
+        let area read-from-string item 4 data
+        let pop-density read-from-string item 5 data
+        
+        table:put states-data-table state-name (list state-code lat lon area pop-density)
+      ]
+    ]
+    
+    file-close
+    print "States data loaded successfully"
+  ]
+end
+
+to load-cities-data
+  set cities-data-table table:make
+  
+  if file-exists? "gis_data/indian_major_cities.csv" [
+    file-open "gis_data/indian_major_cities.csv"
+    let header file-read-line  ; Skip header
+    
+    while [not file-at-end?] [
+      let line file-read-line
+      let data split line ","
+      
+      if length data >= 6 [
+        let city-name item 0 data
+        let state-name item 1 data
+        let lat read-from-string item 2 data
+        let lon read-from-string item 3 data
+        let population read-from-string item 4 data
+        let city-type item 5 data
+        
+        table:put cities-data-table city-name (list state-name lat lon population city-type)
+      ]
+    ]
+    
+    file-close
+    print "Cities data loaded successfully"
+  ]
+end
+
+to load-coordinates-data
+  set states-coordinates-table table:make
+  
+  if file-exists? "gis_data/netlogo_coordinates.csv" [
+    file-open "gis_data/netlogo_coordinates.csv"
+    let header file-read-line  ; Skip header
+    
+    while [not file-at-end?] [
+      let line file-read-line
+      let data split line ","
+      
+      if length data >= 8 [
+        let state-name item 0 data
+        let netlogo-x read-from-string item 6 data
+        let netlogo-y read-from-string item 7 data
+        
+        table:put states-coordinates-table state-name (list netlogo-x netlogo-y)
+      ]
+    ]
+    
+    file-close
+    print "Coordinate mappings loaded successfully"
+  ]
+end
+
+; Utility functions
+to-report get-state-population-density [state-name]
+  if states-data-table != 0 and table:has-key? states-data-table state-name [
+    let state-data table:get states-data-table state-name
+    report item 4 state-data  ; population density
+  ]
+  report 100  ; default
+end
+
+to-report get-state-coordinates [state-name]
+  if states-coordinates-table != 0 and table:has-key? states-coordinates-table state-name [
+    report table:get states-coordinates-table state-name
+  ]
+  report (list 0 0)  ; default center
+end
+
+to-report get-city-data [city-name]
+  if cities-data-table != 0 and table:has-key? cities-data-table city-name [
+    report table:get cities-data-table city-name
+  ]
+  report nobody
+end
+
+to-report split [string delimiter]
+  let result []
+  let current-word ""
+  let string-length length string
+  
+  let i 0
+  while [i < string-length] [
+    let char substring string i (i + 1)
+    
+    if char = delimiter [
+      if current-word != "" [
+        set result lput current-word result
+        set current-word ""
+      ]
+    ] [
+      set current-word (word current-word char)
+    ]
+    
+    set i i + 1
+  ]
+  
+  if current-word != "" [
+    set result lput current-word result
+  ]
+  
+  report result
+end
+
+; Setup procedures using real data
+to setup-real-indian-states
+  load-indian-gis-data
+  
+  ; Apply real state data to patches
+  ask patches [
+    ; Find closest state based on coordinates
+    let closest-state ""
+    let min-distance 1000000
+    
+    let state-names table:keys states-coordinates-table
+    foreach state-names [ state-name ->
+      let coords get-state-coordinates state-name
+      let state-x item 0 coords
+      let state-y item 1 coords
+      let dist distance-to-point pxcor pycor state-x state-y
+      
+      if dist < min-distance [
+        set min-distance dist
+        set closest-state state-name
+      ]
+    ]
+    
+    ; Set patch properties based on closest state
+    if closest-state != "" [
+      set state-name closest-state
+      set population-density get-state-population-density closest-state
+      set is-urban (population-density > 500)
+    ]
+  ]
+end
+
+to setup-real-indian-cities
+  load-indian-gis-data
+  
+  ; Create cities from real data
+  let city-names table:keys cities-data-table
+  foreach city-names [ city-name ->
+    let city-data get-city-data city-name
+    if city-data != nobody [
+      let state-name item 0 city-data
+      let lat item 1 city-data
+      let lon item 2 city-data
+      let population item 3 city-data
+      let city-type item 4 city-data
+      
+      ; Convert to NetLogo coordinates
+      let netlogo-coords convert-latlon-to-netlogo lat lon
+      let x-coord item 0 netlogo-coords
+      let y-coord item 1 netlogo-coords
+      
+      ; Create city if within bounds
+      if x-coord >= min-pxcor and x-coord <= max-pxcor and
+         y-coord >= min-pycor and y-coord <= max-pycor [
+        create-cities 1 [
+          setxy x-coord y-coord
+          set city-name city-name
+          set city-population population
+          set city-type city-type
+          
+          ; Set appearance based on type
+          if city-type = "metro" [
+            set color red
+            set size 3
+          ] [
+            set color orange
+            set size 2
+          ]
+          
+          set shape "circle"
+        ]
+      ]
+    ]
+  ]
+end
+
+to-report convert-latlon-to-netlogo [lat lon]
+  ; Convert lat/lon to NetLogo coordinates (simplified)
+  let min-lat 6.5
+  let max-lat 37
+  let min-lon 68
+  let max-lon 97.5
+  
+  let world-width max-pxcor - min-pxcor
+  let world-height max-pycor - min-pycor
+  
+  let netlogo-x min-pxcor + (lon - min-lon) / (max-lon - min-lon) * world-width
+  let netlogo-y min-pycor + (lat - min-lat) / (max-lat - min-lat) * world-height
+  
+  report (list netlogo-x netlogo-y)
+end
+
+to-report distance-to-point [x1 y1 x2 y2]
+  report sqrt ((x1 - x2) ^ 2 + (y1 - y2) ^ 2)
+end

@@ -1,0 +1,229 @@
+import folium
+from folium.plugins import HeatMap
+import pandas as pd
+import numpy as np
+import requests
+import json
+from datetime import datetime, timedelta
+
+class AQIHeatmapGenerator:
+    def __init__(self):
+        self.map_center = [20.5937, 78.9629]  # India center
+        self.zoom_start = 5
+        self.aqi_data = []
+        
+    def fetch_cpcb_data(self):
+        """Fetch real-time data from CPCB API"""
+        try:
+            # Mock API call - replace with actual CPCB endpoint
+            # url = "https://api.cpcb.nic.in/aqi/current"
+            # response = requests.get(url)
+            
+            # For now, using mock data
+            mock_data = [
+                {"city": "Delhi", "lat": 28.6139, "lon": 77.2090, "aqi": 156, "pm25": 89, "pm10": 145},
+                {"city": "Mumbai", "lat": 19.0760, "lon": 72.8777, "aqi": 89, "pm25": 54, "pm10": 87},
+                {"city": "Bangalore", "lat": 12.9716, "lon": 77.5946, "aqi": 67, "pm25": 41, "pm10": 68},
+                {"city": "Chennai", "lat": 13.0827, "lon": 80.2707, "aqi": 78, "pm25": 48, "pm10": 79},
+                {"city": "Kolkata", "lat": 22.5726, "lon": 88.3639, "aqi": 134, "pm25": 78, "pm10": 125},
+                {"city": "Hyderabad", "lat": 17.3850, "lon": 78.4867, "aqi": 92, "pm25": 56, "pm10": 88},
+                {"city": "Pune", "lat": 18.5204, "lon": 73.8567, "aqi": 101, "pm25": 62, "pm10": 95},
+                {"city": "Ahmedabad", "lat": 23.0225, "lon": 72.5714, "aqi": 145, "pm25": 85, "pm10": 132},
+                {"city": "Jaipur", "lat": 26.9124, "lon": 75.7873, "aqi": 167, "pm25": 98, "pm10": 156},
+                {"city": "Lucknow", "lat": 26.8467, "lon": 80.9462, "aqi": 178, "pm25": 105, "pm10": 168}
+            ]
+            
+            self.aqi_data = mock_data
+            return True
+            
+        except Exception as e:
+            print(f"Error fetching CPCB data: {e}")
+            return False
+    
+    def generate_interpolated_data(self):
+        """Generate interpolated data points for smoother heatmap"""
+        interpolated_data = []
+        
+        for point in self.aqi_data:
+            # Add original point
+            interpolated_data.append(point)
+            
+            # Add surrounding interpolated points
+            base_lat, base_lon = point['lat'], point['lon']
+            base_aqi = point['aqi']
+            
+            # Create grid around each point
+            for i in range(-2, 3):
+                for j in range(-2, 3):
+                    if i == 0 and j == 0:
+                        continue
+                    
+                    # Calculate distance-based variation
+                    distance = np.sqrt(i**2 + j**2)
+                    variation = np.random.normal(0, 20 / distance)
+                    
+                    new_point = {
+                        'city': f"{point['city']}_interpolated_{i}_{j}",
+                        'lat': base_lat + i * 0.1,
+                        'lon': base_lon + j * 0.1,
+                        'aqi': max(0, base_aqi + variation),
+                        'pm25': max(0, point['pm25'] + variation * 0.6),
+                        'pm10': max(0, point['pm10'] + variation * 0.8)
+                    }
+                    interpolated_data.append(new_point)
+        
+        return interpolated_data
+    
+    def get_aqi_color(self, aqi):
+        """Get color based on AQI value"""
+        if aqi <= 50:
+            return '#00e400'
+        elif aqi <= 100:
+            return '#ffff00'
+        elif aqi <= 150:
+            return '#ff7e00'
+        elif aqi <= 200:
+            return '#ff0000'
+        elif aqi <= 300:
+            return '#8f3f97'
+        else:
+            return '#7e0023'
+    
+    def get_aqi_category(self, aqi):
+        """Get AQI category"""
+        if aqi <= 50:
+            return 'Good'
+        elif aqi <= 100:
+            return 'Moderate'
+        elif aqi <= 150:
+            return 'Unhealthy for Sensitive Groups'
+        elif aqi <= 200:
+            return 'Unhealthy'
+        elif aqi <= 300:
+            return 'Very Unhealthy'
+        else:
+            return 'Hazardous'
+    
+    def create_heatmap(self, pollutant='aqi', save_path='aqi_heatmap.html'):
+        """Create interactive heatmap"""
+        
+        # Fetch data
+        if not self.fetch_cpcb_data():
+            print("Failed to fetch data")
+            return None
+        
+        # Create base map
+        m = folium.Map(
+            location=self.map_center,
+            zoom_start=self.zoom_start,
+            tiles='OpenStreetMap'
+        )
+        
+        # Add tile layers
+        folium.TileLayer('CartoDB positron').add_to(m)
+        folium.TileLayer('Stamen Terrain').add_to(m)
+        
+        # Prepare heatmap data
+        interpolated_data = self.generate_interpolated_data()
+        heat_data = []
+        
+        for point in interpolated_data:
+            value = point.get(pollutant, point['aqi'])
+            # Normalize intensity (0-1)
+            intensity = min(max(value / 300, 0), 1)
+            heat_data.append([point['lat'], point['lon'], intensity])
+        
+        # Add heatmap layer
+        HeatMap(
+            heat_data,
+            min_opacity=0.2,
+            max_zoom=18,
+            radius=25,
+            blur=15,
+            gradient={
+                0.0: '#00e400',
+                0.2: '#ffff00',
+                0.4: '#ff7e00',
+                0.6: '#ff0000',
+                0.8: '#8f3f97',
+                1.0: '#7e0023'
+            }
+        ).add_to(m)
+        
+        # Add markers for major cities
+        for point in self.aqi_data:
+            aqi_value = point['aqi']
+            color = self.get_aqi_color(aqi_value)
+            category = self.get_aqi_category(aqi_value)
+            
+            # Create popup content
+            popup_html = f"""
+            <div style="width: 200px;">
+                <h3 style="margin: 0;">{point['city']}</h3>
+                <hr style="margin: 5px 0;">
+                <table style="width: 100%;">
+                    <tr><td><b>AQI:</b></td><td style="color: {color};"><b>{aqi_value:.0f}</b></td></tr>
+                    <tr><td><b>PM2.5:</b></td><td>{point['pm25']:.0f} μg/m³</td></tr>
+                    <tr><td><b>PM10:</b></td><td>{point['pm10']:.0f} μg/m³</td></tr>
+                    <tr><td colspan="2" style="text-align: center; background: {color}; color: white; padding: 5px; border-radius: 3px;">
+                        {category}
+                    </td></tr>
+                </table>
+                <small>Updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}</small>
+            </div>
+            """
+            
+            folium.CircleMarker(
+                location=[point['lat'], point['lon']],
+                radius=8,
+                popup=folium.Popup(popup_html, max_width=300),
+                color='white',
+                weight=2,
+                fillColor=color,
+                fillOpacity=0.8,
+                tooltip=f"{point['city']}: AQI {aqi_value:.0f}"
+            ).add_to(m)
+        
+        # Add legend
+        legend_html = '''
+        <div style="position: fixed; 
+                    bottom: 50px; right: 50px; width: 150px; height: 200px; 
+                    background-color: white; border:2px solid grey; z-index:9999; 
+                    font-size:14px; padding: 10px">
+        <h4>AQI Levels</h4>
+        <div><span style="color: #00e400;">●</span> Good (0-50)</div>
+        <div><span style="color: #ffff00;">●</span> Moderate (51-100)</div>
+        <div><span style="color: #ff7e00;">●</span> Unhealthy for Sensitive (101-150)</div>
+        <div><span style="color: #ff0000;">●</span> Unhealthy (151-200)</div>
+        <div><span style="color: #8f3f97;">●</span> Very Unhealthy (201-300)</div>
+        <div><span style="color: #7e0023;">●</span> Hazardous (301+)</div>
+        </div>
+        '''
+        m.get_root().html.add_child(folium.Element(legend_html))
+        
+        # Add layer control
+        folium.LayerControl().add_to(m)
+        
+        # Save map
+        m.save(save_path)
+        print(f"Heatmap saved to {save_path}")
+        
+        return m
+
+    def create_time_series_heatmap(self, hours_back=24):
+        """Create time-series heatmap animation"""
+        # This would create multiple heatmaps for different time periods
+        # and combine them into an animation
+        pass
+
+# Usage example
+if __name__ == "__main__":
+    generator = AQIHeatmapGenerator()
+    
+    # Generate current AQI heatmap
+    heatmap = generator.create_heatmap(pollutant='aqi', save_path='india_aqi_heatmap.html')
+    
+    # Generate PM2.5 specific heatmap
+    pm25_heatmap = generator.create_heatmap(pollutant='pm25', save_path='india_pm25_heatmap.html')
+    
+    print("Heatmaps generated successfully

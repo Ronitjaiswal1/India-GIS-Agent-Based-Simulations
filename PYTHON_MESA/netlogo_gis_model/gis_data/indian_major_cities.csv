@@ -1,0 +1,31 @@
+city,state,lat,lon,population,type
+Mumbai,Maharashtra,19.076,72.8777,12442373,metro
+Delhi,Delhi,28.6139,77.209,11007835,metro
+Bangalore,Karnataka,12.9716,77.5946,8443675,metro
+Hyderabad,Telangana,17.385,78.4867,6809970,metro
+Ahmedabad,Gujarat,23.0225,72.5714,5570585,metro
+Chennai,Tamil Nadu,13.0827,80.2707,4681087,metro
+Kolkata,West Bengal,22.5726,88.3639,4486679,metro
+Surat,Gujarat,21.1959,72.8302,4467797,urban
+Pune,Maharashtra,18.5204,73.8567,3124458,urban
+Jaipur,Rajasthan,26.9124,75.7873,3046163,urban
+Lucknow,Uttar Pradesh,26.8467,80.9462,2817105,urban
+Kanpur,Uttar Pradesh,26.4499,80.3319,2767031,urban
+Nagpur,Maharashtra,21.1458,79.0882,2405421,urban
+Indore,Madhya Pradesh,22.7196,75.8577,1964086,urban
+Thane,Maharashtra,19.2183,72.9781,1841128,urban
+Bhopal,Madhya Pradesh,23.2599,77.4126,1798218,urban
+Visakhapatnam,Andhra Pradesh,17.6868,83.2185,1730320,urban
+Pimpri-Chinchwad,Maharashtra,18.6298,73.7997,1729359,urban
+Patna,Bihar,25.5941,85.1376,1684222,urban
+Vadodara,Gujarat,22.3072,73.1812,1666703,urban
+Ghaziabad,Uttar Pradesh,28.6692,77.4538,1648643,urban
+Ludhiana,Punjab,30.901,75.8573,1618879,urban
+Agra,Uttar Pradesh,27.1767,78.0081,1585704,urban
+Nashik,Maharashtra,19.9975,73.7898,1486973,urban
+Faridabad,Haryana,28.4089,77.3178,1414050,urban
+Meerut,Uttar Pradesh,28.9845,77.7064,1309023,urban
+Rajkot,Gujarat,22.3039,70.8022,1286995,urban
+Kalyan-Dombivli,Maharashtra,19.235,73.13,1246381,urban
+Vasai-Virar,Maharashtra,19.492,72.8,1221233,urban
+Varanasi,Uttar Pradesh,25.3176,82.9739,1198491,urban

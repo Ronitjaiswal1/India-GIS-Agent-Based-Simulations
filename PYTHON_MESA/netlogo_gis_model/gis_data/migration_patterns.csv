@@ -1,0 +1,6 @@
+from_state,to_state,migration_rate
+Bihar,Maharashtra,0.15
+Uttar Pradesh,Delhi,0.12
+Odisha,Karnataka,0.08
+West Bengal,Maharashtra,0.1
+Madhya Pradesh,Gujarat,0.07
