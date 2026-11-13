@@ -14,3 +14,8 @@ __pycache__/
 # OS / editor
 Thumbs.db
 .DS_Store
+
+# Generated simulation outputs
+PYTHON_MESA/*.png
+PYTHON_MESA/*.csv
+Gis_disease/experiments/curves.csv

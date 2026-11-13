@@ -80,16 +80,16 @@
 ## Step 5: Configure the NetLogo Model
 
 1. **Open the model**:
-   - Double-click `indian_map_model.nlogo`
+   - Double-click `india_advanced_simulation.nlogo`
    - Or open NetLogo and use File → Open
 
 2. **Check file paths**:
    - Verify that the paths in the code match your file structure
-   - Look for lines like: `"data/india_boundary.shp"`
+   - Look for lines like: `"map/india_boundary.shp"`
 
 3. **Modify if necessary**:
    - If your files have different names, update the code accordingly
-   - For example, change `"data/india_boundary.shp"` to `"data/your_filename.shp"`
+   - For example, change `"map/india_boundary.shp"` to `"map/your_filename.shp"`
 
 ## Step 6: Test the Model
 

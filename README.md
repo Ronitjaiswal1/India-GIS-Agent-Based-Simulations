@@ -1,136 +1,129 @@
 # India GIS Agent-Based Simulations
 
-A collection of agent-based models built on real geographic data for India, developed during my internship at the Indian Institute of Space Science and Technology (IIST). The work combines GIS shapefiles with NetLogo and Python (Mesa) to simulate how people, cities, economies and diseases behave across real map geography, from the national scale down to individual buildings and roads in Delhi.
+Agent-based models built on real geographic data for India, developed during my internship at the Indian Institute of Space Science and Technology (IIST). The work combines GIS shapefiles with NetLogo and Python (Mesa) to simulate people, cities, economies and epidemics on real maps, from the whole country down to individual streets in Old Delhi.
 
 **Author:** Ronit Jaiswal
 
+<p>
+  <img src="docs/images/netlogo_advanced_economic.png" width="32%" alt="Advanced India simulation, economic view">
+  <img src="docs/images/netlogo_disease_day14.png" width="32%" alt="SEIR epidemic on the Old Delhi street network">
+  <img src="docs/images/netlogo_gadm_districts.png" width="32%" alt="GADM district boundaries">
+</p>
+
 ---
 
-## Projects at a glance
+## Projects
 
 | Folder | What it is | Scale | Tools |
 | --- | --- | --- | --- |
-| [`Gis_Netlogo`](Gis_Netlogo/) | Advanced India simulation: cities, migration, economy, environment, transport and policy | National | NetLogo 6.4, GIS extension |
-| [`Gis_disease`](Gis_disease/) | Disease spread among commuters moving along real Delhi roads between homes and workplaces | City (Delhi) | NetLogo, GIS extension, OpenStreetMap data |
-| [`PYTHON_MESA`](PYTHON_MESA/) | Python re-implementation of the India model, GIS data processing pipeline, and NetLogo control from Python | National | Python, Mesa, pandas, Matplotlib, pyNetLogo |
-| [`GISnetlogo3`](GISnetlogo3/) | Minimal reference model for loading and drawing GADM administrative boundaries in NetLogo | National | NetLogo, GIS extension |
+| [`Gis_disease`](Gis_disease/) | SEIR epidemic among commuters on the real Old Delhi street network, with intervention experiments | City | NetLogo, GIS extension, OpenStreetMap |
+| [`Gis_Netlogo`](Gis_Netlogo/) | National simulation of India: cities, migration, economy, environment, transport and policy | Country | NetLogo, GIS extension |
+| [`PYTHON_MESA`](PYTHON_MESA/) | Python re-implementation with Mesa, GIS data tools, and NetLogo control from Python | Country | Python, Mesa, pandas, Matplotlib |
+| [`GISnetlogo3`](GISnetlogo3/) | Reusable template for loading and colouring administrative boundaries | Country | NetLogo, GADM 4.1 |
+
+Every NetLogo model here is tested headless in NetLogo 7.0.4. The Python models have smoke tests that run in CI.
 
 ---
 
-## 1. Gis_Netlogo: Advanced Indian GIS Simulation
+## 1. Epidemic on the Old Delhi street network (`Gis_disease`)
 
-A NetLogo model of India that loads state and national boundary shapefiles and overlays a multi-agent socio-economic simulation on top of them.
+An SEIR model (susceptible, exposed, infected, recovered) in the Subzi Mandi area of Old Delhi. It uses 2,229 OpenStreetMap building footprints and 1,885 road segments.
 
-**Agents (breeds):** cities, people, companies, highways, railways, airports, government offices.
+- 300 residents live in residential buildings and walk the real street network to workplaces, schools and markets each day, leaving between 07:00 and 09:00 and returning between 16:00 and 19:00. One tick is 10 minutes.
+- Infection passes through contact on the same patch: on the street, at work and inside shared homes overnight.
+- Interventions: mask use (halves outgoing and cuts incoming transmission by 30 percent) and hospital isolation, where symptomatic people go to the Northern Railway Hospital one day after symptoms start.
 
-**What it simulates**
+**Experiment results** (10 runs per scenario, 5 initial cases, 60 days; reproducible from `Gis_disease/experiments/`):
 
-- **Urban systems:** major Indian cities with population, GDP per capita, growth rate, infrastructure, pollution and employment attributes.
-- **Population dynamics:** urban, rural, migrant and tourist agents with age, income, education, health and job sector; rural-to-urban and inter-city migration driven by city attractiveness.
-- **Economy:** industrial, agricultural and service sectors; companies with revenue, employees and production capacity; city and national GDP tracking.
-- **Environment:** temperature, rainfall, monsoon cycles, pollution from industry and traffic, water availability, forest cover and a climate change factor.
-- **Transport:** highway, railway and airport networks with capacity and flow.
-- **Policy and events:** infrastructure investment, social programmes, pollution regulation, festivals, natural disasters and economic shocks.
+| Scenario | Peak infected | Peak day | Attack rate | Epidemic length |
+| --- | ---: | ---: | ---: | ---: |
+| No intervention | 40.2 | 16.8 | 43.8 % (sd 15.7) | 49.7 days |
+| 50 % mask use | 31.2 | 18.5 | 34.2 % (sd 13.7) | 53.8 days |
+| Hospital isolation | 20.5 | 8.1 | 11.6 % (sd 5.6) | 25.5 days |
+| Isolation + 50 % masks | 15.8 | 7.3 | 7.8 % (sd 3.8) | 20.8 days |
 
-**Display modes:** economic, environmental, population, transportation and development views, each recolouring the map by the relevant patch indicator.
+![Mean epidemic curves for the four scenarios](docs/images/epidemic_curves.png)
 
-**Model files**
+Isolating symptomatic people cuts the attack rate by roughly three quarters and halves the length of the outbreak. That effect holds across both experiment sets. The effect of 50 percent mask use is smaller than the run-to-run variation at 10 runs: it lowered the attack rate in the scenario runs but peaked slightly higher in the independent curve runs. Separating it reliably would need more repetitions.
 
-| File | Description |
-| --- | --- |
-| `indian_map_model.nlogo` | Full advanced model (NetLogo 6.4 XML format) |
-| `final_netlogo_model.nlogo` | Stable version: map loading, major cities and moving agents |
-| `indian_map_simple.nlogo` | Lightweight version for quick testing |
-| `run_model.bat` | Opens the model in NetLogo on Windows |
-| `download_data.ps1`, `download_data_alternative.bat` | Scripts to download boundary data |
+## 2. National simulation of India (`Gis_Netlogo`)
 
-**Data:** `map/` (India boundary and state layers), `indianDistrictShapefile/` (district boundaries), `data/` (Natural Earth countries and states), `delhi_map/` (Delhi buildings, roads and hospitals).
+![Advanced simulation development view](docs/images/netlogo_advanced_development.png)
 
-More detail: [`Gis_Netlogo/README.md`](Gis_Netlogo/README.md) and [`Gis_Netlogo/README_ADVANCED.md`](Gis_Netlogo/README_ADVANCED.md).
+`india_advanced_simulation.nlogo` loads the state boundaries of India and overlays a multi-agent socio-economic system:
 
----
+- **Agents:** 10 major cities at their real coordinates, about 850 urban, rural, migrant and tourist agents, companies, highways, railways, airports and government offices.
+- **Patch indicators:** GDP, industry, agriculture, services, pollution, water, forest cover, temperature, rainfall, road density, power, internet, education, healthcare and unemployment.
+- **Dynamics (one tick = one month):** monsoon cycle, pollution spread, climate drift, city growth and employment, migration towards attractive cities, transport flows, government policy, festivals, disasters and economic booms.
+- **Views:** economic, environmental, population, transport and development, plus plots of national GDP, pollution, development and unemployment.
 
-## 2. Gis_disease: Disease Spread on the Delhi Road Network
+`final_netlogo_model.nlogo` is a lighter companion model: states coloured individually, 12 cities, travellers moving between cities in proportion to population, and click-to-inspect states.
 
-An epidemic model in which 200 residents commute daily between home and work over the actual street network of a part of Delhi.
+## 3. Python and Mesa implementation (`PYTHON_MESA`)
 
-**How it works**
+![Python simulation output](docs/images/python_mesa_simulation.png)
 
-1. Building footprints, roads and hospitals are loaded from shapefiles. Each patch takes the land-use type of the building beneath it (house, apartment, commercial, office, hospital and others) and is coloured accordingly.
-2. Patches that intersect the road layer are marked as roads.
-3. Each person is given a home (house or apartment) and a workplace (commercial or office).
-4. Each tick is one hour. At 08:00 people head to work and at 17:00 they head home, moving along road patches toward their goal.
-5. One person starts infected. Healthy people sharing a patch with an infected person become infected with a 25 percent probability per tick.
-6. A live plot tracks healthy, infected and recovered counts.
+The India model rebuilt in Python. It comes as a Mesa version (`india_gis_model.py`) and a dependency-light version (`india_final_working.py`). There are also data tools that download Natural Earth boundaries and generate state, city, economic and migration datasets, and a notebook that drives NetLogo from Python through pyNetLogo.
 
-**Run:** open `Gis_disease/diseaseSpreading.nlogo` in NetLogo, click `setup`, then `go`.
+## 4. Boundary loader template (`GISnetlogo3`)
+
+A minimal, reusable starting point for any map-based NetLogo model. It loads GADM 4.1 boundaries at state, district or sub-district level, fits the world to them, colours each state and identifies states on click.
 
 ---
 
-## 3. PYTHON_MESA: Python and Mesa Implementation
+## Running
 
-The same India simulation rebuilt in Python, plus tooling that connects Python and NetLogo.
+**NetLogo models:** install [NetLogo](https://ccl.northwestern.edu/netlogo/) (tested with 7.0.4; the GIS extension is bundled), open any `.nlogo` file, press `setup` and then `go`.
 
-| File | Description |
-| --- | --- |
-| `india_gis_model.py` | Mesa-based model with `Person` and `City` agents, state regions, data collection and Matplotlib visualisation |
-| `india_final_working.py`, `india_working_model.py`, `india_gis_simple.py` | Dependency-light versions using NumPy, pandas and Matplotlib only |
-| `netlogo_in_vscode.ipynb` | Notebook that drives NetLogo models from Python through pyNetLogo |
-| `netlogo_gis_model/india_gis_processor.py` | Downloads Natural Earth data, extracts Indian states and converts them to NetLogo coordinates |
-| `netlogo_gis_model/simple_data_generator.py` | Generates state, city, economic and migration CSV data and NetLogo include files |
-| `netlogo_gis_model/*.nlogo` | NetLogo models that read the generated CSV data |
-| `tests/satyam.py` | Prototype air-quality (AQI) heatmap of Indian cities using Folium |
-
-**Run:**
+**Python models:**
 
 ```bash
 cd PYTHON_MESA
 python -m venv .venv
-.venv\Scripts\activate          # Windows
+.venv\Scripts\activate            # Windows
 pip install -r requirements.txt
 python india_gis_model.py
+pytest -q tests
 ```
 
----
+**Disease experiments (headless):**
 
-## 4. GISnetlogo3: GADM Boundary Loader
-
-A minimal model showing the core GIS workflow in NetLogo: load a shapefile, fit the world envelope to it, and draw it. It uses GADM 4.1 administrative boundaries for India at state, district and sub-district level (`maps/gadm41_IND_1` to `gadm41_IND_3`). It is a useful starting template for any new map-based model.
-
-**Run:** open `GISnetlogo3/india-gis_1.nlogo` in NetLogo and click `setup`.
-
----
-
-## Requirements
-
-- [NetLogo 6.4](https://ccl.northwestern.edu/netlogo/) or newer (the GIS extension ships with NetLogo)
-- Python 3.10 or newer for the `PYTHON_MESA` project
+```bash
+cd Gis_disease
+netlogo-headless --model diseaseSpreading.nlogo --threads 4 \
+    --setup-file experiments/scenarios.xml --table experiments/scenarios.csv
+python experiments/analyse_results.py
+```
 
 ## Repository structure
 
 ```
 .
-|-- Gis_Netlogo/          Advanced national-scale NetLogo model and data
-|-- Gis_disease/          Delhi disease-spread model and OSM-derived layers
-|-- PYTHON_MESA/          Python / Mesa models, data tools and notebook
-|-- GISnetlogo3/          Minimal GADM boundary loader
-`-- README.md
+|-- Gis_disease/          SEIR model, Delhi OSM layers, experiments and analysis
+|-- Gis_Netlogo/          National models, India boundary and district data
+|-- PYTHON_MESA/          Python / Mesa models, data tools, notebook, tests
+|-- GISnetlogo3/          GADM boundary loader template
+|-- docs/images/          Screenshots and result figures
+`-- .github/workflows/    CI for the Python models
 ```
+
+Older drafts that are kept for reference live in each project's `archive/` folder.
 
 ## Key concepts demonstrated
 
-- Agent-based modelling of social, economic and epidemiological systems
-- Loading, projecting and rasterising vector GIS data (shapefiles) inside a simulation
-- Mapping polygon attributes onto simulation patches (`gis:apply-coverage`)
-- Network-constrained agent movement along real road geometry
-- Porting a model between NetLogo and Python (Mesa) and controlling NetLogo from Python
+- Agent-based modelling of epidemiological, social and economic systems
+- Rasterising vector GIS data onto simulation patches (`gis:apply-coverage`, `gis:intersecting`)
+- Placing agents by latitude and longitude (`gis:project-lat-lon`)
+- Movement constrained to a real road network
+- Designed experiments with BehaviorSpace, run headless, with statistical summaries
+- Porting a model between NetLogo and Python (Mesa)
 
 ## Data sources and credits
 
-- Natural Earth: public domain country and state boundaries
-- GADM 4.1: administrative boundaries of India (free for academic and non-commercial use)
-- OpenStreetMap contributors: Delhi buildings, roads and hospitals (ODbL)
-- NetLogo: Wilensky, U. (1999). NetLogo. Center for Connected Learning and Computer-Based Modeling, Northwestern University.
+- OpenStreetMap contributors: Delhi buildings, roads and hospital (ODbL)
+- GADM 4.1: administrative boundaries of India (academic and non-commercial use)
+- Natural Earth: country and state boundaries (public domain)
+- NetLogo: Wilensky, U. (1999). Center for Connected Learning and Computer-Based Modeling, Northwestern University.
 - Mesa: agent-based modelling framework for Python
 
 ## Author
@@ -140,4 +133,4 @@ GitHub: [Ronitjaiswal1](https://github.com/Ronitjaiswal1)
 
 ## License
 
-Code is released under the MIT License (see `LICENSE`). Third-party map data remains under the terms of its original source listed above.
+Code is released under the MIT License (see `LICENSE`). Map data remains under the terms of its original source.

@@ -107,7 +107,7 @@ data/
 ## Testing the Data
 
 1. **Open NetLogo**
-2. **Load the model**: `indian_map_model.nlogo`
+2. **Load the model**: `india_advanced_simulation.nlogo`
 3. **Click "setup"**
 4. **Verify the map displays correctly**
 

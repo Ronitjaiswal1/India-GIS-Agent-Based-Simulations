@@ -1,12 +1,22 @@
+;; =============================================================================
+;; India GIS map with major cities and inter-city travellers
+;; Author: Ronit Jaiswal
+;;
+;; Loads the state boundaries of India from a shapefile, colours each state,
+;; places major cities at their real latitude / longitude, and simulates
+;; travellers moving over land between cities, counting completed trips.
+;; =============================================================================
+
 extensions [gis]
 
 globals [
   india-dataset
-  states-dataset
+  state-names        ;; sorted list of state names found in the dataset
+  trips-completed
 ]
 
 breed [cities city]
-breed [agents my-agent]
+breed [travellers traveller]
 
 patches-own [
   state-name
@@ -16,289 +26,192 @@ patches-own [
 cities-own [
   city-name
   population
+  arrivals
 ]
+
+travellers-own [
+  destination
+]
+
 to setup
   clear-all
-
-  ; Initialize all patches to be water by default
-  ask patches [
-    set is-land? false
-  ]
-
-  ; Load the Indian map data (this will set is-land? to true for land patches)
+  gis:load-coordinate-system "map/india_boundary.prj"
   load-india-map
-
-  ; Set up the display
-  setup-display
-
-  ; Create some sample agents
-  create-sample-agents
-
+  create-major-cities
+  create-travellers-on-land
+  set trips-completed 0
   reset-ticks
 end
 
 to load-india-map
-  ; Load the Indian boundary shapefile
-  ; Note: You'll need to download Indian map shapefiles and place them in the data folder
+  set india-dataset gis:load-dataset "map/india_boundary.shp"
+  gis:set-world-envelope (gis:envelope-of india-dataset)
 
-  ; Try to load the India boundary shapefile
-  if file-exists? "map/india_boundary.shp" [
-    set india-dataset gis:load-dataset "map/india_boundary.shp"
-
-    ; Set the world envelope to match the GIS data
-    gis:set-world-envelope (gis:envelope-of india-dataset)
-
-    ; Apply the GIS data to patches
-    gis:apply-coverage india-dataset "ST_NM" state-name
-
-    ; Mark land patches
-    ask patches [
-      set is-land? (state-name != 0 and state-name != "")
-      if is-land? [
-        set pcolor green + 2
-      ]
-    ]
-
-    ; Draw the boundary
-    gis:set-drawing-color black
-    gis:draw india-dataset 2
+  ;; Patches outside every polygon receive NaN, so test for a string name.
+  gis:apply-coverage india-dataset "ST_NM" state-name
+  ask patches [
+    set is-land? is-string? state-name
+    if not is-land? [ set state-name "" ]
   ]
+  set state-names sort remove-duplicates [state-name] of patches with [is-land?]
+  color-states
 
-  ; Load states dataset if available
-  if file-exists? "map/india_states.shp" [
-    set states-dataset gis:load-dataset "map/india_states.shp"
-
-    ; Draw state boundaries
-    gis:set-drawing-color white
-    gis:draw states-dataset 1
-  ]
-
-  ; If shapefiles don't exist, create a basic map representation
-  if not file-exists? "map/india_states.shp" [
-    create-basic-india-outline
-  ]
+  gis:set-drawing-color gray - 3
+  gis:draw india-dataset 1
 end
 
-to create-basic-india-outline
-  ; Create a basic representation of India when shapefiles are not available
-  print "Shapefile not found. Creating basic India outline..."
-
-  ; Create a rough outline of India using patches
+to color-states
+  let palette [17 27 37 47 57 67 77 87 97 107 117 127 137]
   ask patches [
-    let x pxcor
-    let y pycor
-
-    ; Very basic India-like shape (this is a simplified representation)
-    if (x >= -15 and x <= 15 and y >= -20 and y <= 20) [
-      if (y > -15 and y < 15) [
-        ; Main peninsular part
-        if (x >= -10 and x <= 10) [
-          set pcolor green + 2
-          set is-land? true
-          set state-name "India"
-        ]
-      ]
-
-      ; Northern part (broader)
-      if (y >= 0 and y <= 15) [
-        if (x >= -12 and x <= 12) [
-          set pcolor green + 2
-          set is-land? true
-          set state-name "India"
-        ]
-      ]
-
-      ; Southern tip (narrower)
-      if (y >= -20 and y <= -10) [
-        if (x >= -5 and x <= 5) [
-          set pcolor green + 2
-          set is-land? true
-          set state-name "India"
-        ]
-      ]
-    ]
+    ifelse is-land?
+      [ set pcolor item ((position state-name state-names) mod length palette) palette ]
+      [ set pcolor 102 ]   ;; sea / outside India
   ]
-
-  ; Add some major cities
-  create-major-cities
 end
 
 to create-major-cities
-  ; Create major Indian cities
-  create-cities 1 [
-    set city-name "New Delhi"
-    set population 30000000
-    setxy 0 8
-    set color red
-    set size 3
-    set shape "circle"
+  ;; name, latitude, longitude, metro population (millions)
+  let city-data [
+    ["Delhi" 28.61 77.21 32.9]
+    ["Mumbai" 19.08 72.88 21.3]
+    ["Kolkata" 22.57 88.36 15.3]
+    ["Chennai" 13.08 80.27 11.8]
+    ["Bengaluru" 12.97 77.59 13.6]
+    ["Hyderabad" 17.39 78.49 10.8]
+    ["Ahmedabad" 23.02 72.57 8.6]
+    ["Pune" 18.52 73.86 7.2]
+    ["Jaipur" 26.91 75.79 4.2]
+    ["Lucknow" 26.85 80.95 3.9]
+    ["Guwahati" 26.14 91.74 1.2]
+    ["Thiruvananthapuram" 8.52 76.94 1.1]
   ]
-
-  create-cities 1 [
-    set city-name "Mumbai"
-    set population 20000000
-    setxy -8 2
-    set color red
-    set size 3
-    set shape "circle"
-  ]
-
-  create-cities 1 [
-    set city-name "Kolkata"
-    set population 14000000
-    setxy 8 5
-    set color red
-    set size 3
-    set shape "circle"
-  ]
-
-  create-cities 1 [
-    set city-name "Chennai"
-    set population 10000000
-    setxy 5 -10
-    set color red
-    set size 3
-    set shape "circle"
-  ]
-
-  create-cities 1 [
-    set city-name "Bangalore"
-    set population 12000000
-    setxy 2 -8
-    set color red
-    set size 3
-    set shape "circle"
+  foreach city-data [ c ->
+    let xy gis:project-lat-lon (item 1 c) (item 2 c)
+    if not empty? xy [
+      create-cities 1 [
+        setxy (item 0 xy) (item 1 xy)
+        set city-name item 0 c
+        set population item 3 c
+        set arrivals 0
+        set shape "circle"
+        set color red
+        set size 1.5 + 1.2 * ln (1 + population)
+        set label city-name
+        set label-color black
+      ]
+    ]
   ]
 end
 
-to setup-display
-  ; Set up the display properties
-  ask patches [
-    if not is-land? [
-      set pcolor blue + 3  ; Water color
-    ]
-  ]
-
-  ; Add labels to cities
-  ask cities [
-    set label city-name
-    set label-color black
-  ]
-end
-
-to create-sample-agents
-  ; Create some sample agents that can move around the map
-  create-agents 50 [
-    ; Place agents only on land patches
-    let land-patches patches with [is-land?]
-    if any? land-patches [
-      move-to one-of land-patches
-    ]
+to create-travellers-on-land
+  let land patches with [is-land?]
+  if not any? land [ stop ]
+  create-travellers num-travellers [
+    move-to one-of land
+    set shape "circle"
+    set size 1.2
     set color yellow
-    set size 0.8
-    set shape "circle"
+    pick-destination
   ]
+end
+
+;; Larger cities attract proportionally more travellers.
+to pick-destination
+  let total sum [population] of cities
+  let r random-float total
+  let chosen nobody
+  ask cities [
+    if chosen = nobody [
+      set r r - population
+      if r <= 0 [ set chosen self ]
+    ]
+  ]
+  set destination ifelse-value chosen = nobody [one-of cities] [chosen]
 end
 
 to go
-  ; Main simulation loop
-  ask agents [
-    move-agent
-  ]
-
+  if not any? cities [ stop ]
+  ask travellers [ move-traveller ]
   tick
 end
 
-to move-agent
-  ; Simple movement for agents - they move randomly but stay on land
-  let target-patch one-of neighbors with [is-land?]
-  if target-patch != nobody [
-    move-to target-patch
+to move-traveller
+  if destination = nobody [ pick-destination ]
+  ifelse distance destination < 1.5 [
+    ask destination [ set arrivals arrivals + 1 ]
+    set trips-completed trips-completed + 1
+    pick-destination
+  ] [
+    ;; Step to the land neighbour closest to the destination.
+    let target min-one-of (neighbors with [is-land?]) [distance [destination] of myself]
+    ifelse target != nobody
+      [ move-to target ]
+      [ face destination fd 1 ]
   ]
 end
 
-to-report get-state-info [patch-x patch-y]
-  ; Get information about a specific location
-  let target-patch patch patch-x patch-y
-  if target-patch != nobody [
-    report [state-name] of target-patch
-  ]
-  report "Unknown"
-end
-
-; Mouse interaction
-to handle-mouse-click
+;; Forever button: click a state to highlight it and print its name.
+to inspect-state
   if mouse-down? [
-    let clicked-patch patch mouse-xcor mouse-ycor
-    if clicked-patch != nobody [
-      ask clicked-patch [
-        if is-land? [
-          print (word "Clicked on: " state-name)
-          set pcolor yellow
-        ]
-      ]
+    let p patch mouse-xcor mouse-ycor
+    if p != nobody and [is-land?] of p [
+      let s [state-name] of p
+      color-states
+      ask patches with [state-name = s] [ set pcolor yellow ]
+      print (word "State: " s ", patches: " count patches with [state-name = s])
+      wait 0.2
     ]
   ]
 end
 
 to reset-colors
-  ; Reset patch colors
-  ask patches [
-    if is-land? [
-      set pcolor green + 2
-    ]
-
-      set pcolor blue + 3
-    ]
+  color-states
 end
 
-; Reporter functions
 to-report total-land-patches
   report count patches with [is-land?]
 end
 
-to-report total-agents
-  report count agents
+to-report busiest-city
+  if not any? cities [ report "none" ]
+  report [city-name] of max-one-of cities [arrivals]
 end
 
-to-report total-cities
-  report count cities
-end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-741
-542
+733
+533
 -1
 -1
-15.85
+3.2
 1
 10
 1
 1
 1
 0
-1
-1
-1
--16
-16
--16
-16
 0
 0
+1
+-80
+80
+-80
+80
+1
+1
 1
 ticks
 30.0
 
 BUTTON
-20
-29
-83
-62
-NIL
-setup 
+10
+10
+100
+43
+setup
+setup
 NIL
 1
 T
@@ -310,10 +223,10 @@ NIL
 1
 
 BUTTON
-119
-37
-182
-70
+105
+10
+200
+43
 go
 go
 T
@@ -324,13 +237,13 @@ NIL
 NIL
 NIL
 NIL
-1
+0
 
 BUTTON
-24
-106
-97
-139
+10
+48
+100
+81
 go once
 go
 NIL
@@ -344,12 +257,12 @@ NIL
 1
 
 BUTTON
-43
-177
-137
-210
+105
+48
+200
+81
+reset colors
 reset-colors
-reser-colors
 NIL
 1
 T
@@ -360,75 +273,110 @@ NIL
 NIL
 1
 
+BUTTON
+10
+86
+200
+119
+click a state to inspect
+inspect-state
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+0
+
+SLIDER
+10
+126
+200
+159
+num-travellers
+num-travellers
+0
+500
+100
+10
+1
+NIL
+HORIZONTAL
+
 MONITOR
-52
-260
-141
-305
-Land Patches
+10
+170
+200
+215
+Land patches
 total-land-patches
 0
 1
 11
 
 MONITOR
-61
-332
-150
-377
-Total Walkers
-Total Agents
-17
+10
+220
+200
+265
+States / UTs
+length state-names
+0
 1
 11
 
 MONITOR
-678
-29
-748
-74
-total-cities
-total-cities
-17
+10
+270
+200
+315
+Cities
+count cities
+0
 1
 11
 
+MONITOR
+10
+320
+200
+365
+Trips completed
+trips-completed
+0
+1
+11
+
+MONITOR
+10
+370
+200
+415
+Busiest destination
+busiest-city
+0
+1
+11
 @#$#@#$#@
 ## WHAT IS IT?
 
-(a general understanding of what the model is trying to show or explain)
+A map of India built from a state boundary shapefile with the NetLogo GIS extension. Each state and union territory is coloured separately, twelve major cities are placed at their real latitude and longitude, and travellers move over land between cities.
 
 ## HOW IT WORKS
 
-(what rules the agents use to create the overall behavior of the model)
+- `gis:apply-coverage` copies each state's name (`ST_NM`) onto the patches it covers; patches outside India stay sea-blue.
+- Cities are positioned with `gis:project-lat-lon` and sized by metro population.
+- Each traveller picks a destination city with probability proportional to its population, walks over land patches towards it, and picks a new destination on arrival.
 
 ## HOW TO USE IT
 
-(how to use the model, including a description of each of the items in the Interface tab)
-
-## THINGS TO NOTICE
-
-(suggested things for the user to notice while running the model)
-
-## THINGS TO TRY
-
-(suggested things for the user to try to do (move sliders, switches, etc.) with the model)
-
-## EXTENDING THE MODEL
-
-(suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
-
-## NETLOGO FEATURES
-
-(interesting or unusual features of NetLogo that the model uses, particularly in the Code tab; or where workarounds were needed for missing features)
-
-## RELATED MODELS
-
-(models in the NetLogo Models Library and elsewhere which are of related interest)
+Press SETUP, then GO. Turn on CLICK A STATE TO INSPECT and click on the map to highlight a state and print its name. RESET COLORS restores the state colours.
 
 ## CREDITS AND REFERENCES
 
-(a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
+Model by Ronit Jaiswal. Built with NetLogo (Wilensky, U. 1999, Center for Connected Learning and Computer-Based Modeling, Northwestern University).
 @#$#@#$#@
 default
 true

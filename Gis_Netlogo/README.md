@@ -1,153 +1,70 @@
-# NetLogo Indian Map Project
+# India GIS Simulations in NetLogo
 
-This project demonstrates how to load and display an Indian map in NetLogo using the GIS extension.
+Two NetLogo models built on the state boundaries of India using the GIS extension.
 
-## Project Structure
+**Author:** Ronit Jaiswal
 
-```
-Gis_Netlogo/
-├── indian_map_model.nlogo    # Main NetLogo model file
-├── data/                     # Directory for GIS data files
-│   ├── india_boundary.shp    # Indian boundary shapefile (to be downloaded)
-│   ├── india_boundary.shx    # Shapefile index file
-│   ├── india_boundary.dbf    # Shapefile attribute table
-│   ├── india_states.shp      # Indian states shapefile (optional)
-│   ├── india_states.shx      # States shapefile index file
-│   └── india_states.dbf      # States shapefile attribute table
-├── README.md                 # This file
-└── setup_instructions.md     # Detailed setup instructions
-```
+<p>
+  <img src="../docs/images/netlogo_advanced_economic.png" width="48%" alt="Advanced simulation, economic view">
+  <img src="../docs/images/netlogo_india_map.png" width="48%" alt="India map with cities and travellers">
+</p>
 
-## Prerequisites
+## Models
 
-1. **NetLogo 6.0 or later** - Download from [NetLogo website](https://ccl.northwestern.edu/netlogo/)
-2. **GIS Extension** - Included with NetLogo installation
-3. **Indian Map Shapefiles** - Download from appropriate sources (see below)
+| File | Description |
+| --- | --- |
+| `india_advanced_simulation.nlogo` | Full socio-economic simulation: cities, people, companies, transport, government, environment and events |
+| `final_netlogo_model.nlogo` | Coloured state map, 12 cities at real coordinates, travellers moving between cities, click-to-inspect |
+| `run_model.bat` | Opens the advanced model on Windows |
 
-## Quick Start
+Both models are tested headless in NetLogo 7.0.4.
 
-1. **Install NetLogo** if you haven't already
-2. **Open the model**: Double-click `indian_map_model.nlogo` or open it from within NetLogo
-3. **Click "setup"** to initialize the model
-4. **Click "go"** to start the simulation (optional - for moving agents)
+## Advanced simulation
 
-## Features
+**Agents**
 
-- **Indian Map Display**: Shows the outline of India
-- **State Boundaries**: Displays state boundaries (if shapefile is available)
-- **Major Cities**: Shows major Indian cities with labels
-- **Interactive Agents**: Sample agents that move around the map
-- **Mouse Interaction**: Click on map areas to get information
-- **Basic Statistics**: Reports on land patches, agents, and cities
+- 10 major cities placed at their real latitude and longitude, with population, GDP per capita, growth rate, infrastructure, pollution, employment and migration attractiveness
+- About 850 people of four types (urban, rural, migrant, tourist), with age, income, education, health, job sector and mobility
+- Companies with revenue, employees and production capacity
+- Highway and railway links between cities, and airports
+- Government offices with budget and efficiency
 
-## Model Components
+**Patch indicators:** GDP, industrial, agricultural and service levels, pollution, water availability, forest cover, temperature, rainfall, road density, power, internet, education, healthcare and unemployment.
 
-### Global Variables
-- `india-dataset`: Stores the Indian boundary GIS data
-- `states-dataset`: Stores the states GIS data
-- `india-envelope`: Geographic envelope of the map
+**Each tick (one month)**
 
-### Breeds
-- `cities`: Represents major Indian cities
-- `agents`: Sample agents that can move around the map
+- **Environment:** monsoon cycle, pollution spreading from industry, drought, rising temperature
+- **Economy:** city output grows from the national base rate, scaled by environment, infrastructure and education; employment moves towards a growth-dependent level
+- **Population and migration:** urban growth and migration towards attractive cities; tourists move between destinations
+- **Transport:** traffic and freight flows, maintenance decay, congestion
+- **Policy:** infrastructure, education and healthcare programmes, pollution regulation
+- **Events:** festivals, harvests, monsoon floods, natural disasters, economic booms and technology spread
 
-### Patch Properties
-- `state-name`: Name of the state the patch belongs to
-- `is-land?`: Boolean indicating if the patch is land or water
+**Views:** economic, environmental, population, transport and development.
 
-### City Properties
-- `city-name`: Name of the city
-- `population`: Population of the city
+**Plots:** national GDP, average pollution, development and unemployment.
 
-## Main Procedures
+## Data
 
-- `setup`: Initializes the model and loads map data
-- `load-india-map`: Loads GIS shapefiles and applies them to the world
-- `create-basic-india-outline`: Creates a basic India outline when shapefiles are not available
-- `go`: Main simulation loop
-- `handle-mouse-click`: Handles mouse interactions with the map
+| Folder | Content |
+| --- | --- |
+| `map/` | India state boundaries (`india_boundary.shp`, field `ST_NM`) |
+| `indianDistrictShapefile/` | District boundaries |
+| `data/` | Natural Earth countries and states |
+| `delhi_map/` | Delhi buildings, roads and hospitals |
 
-## Data Requirements
+See `setup_instructions.md` and `manual_download_guide.md` for downloading or replacing boundary data.
 
-To get the most accurate map representation, you need to download Indian map shapefiles:
+## Running
 
-### Recommended Sources:
-1. **Natural Earth**: [naturalearthdata.com](https://www.naturalearthdata.com/)
-2. **OpenStreetMap**: [download.geofabrik.de](https://download.geofabrik.de/)
-3. **Indian Government**: [surveyofindia.gov.in](https://www.surveyofindia.gov.in/)
+1. Install [NetLogo](https://ccl.northwestern.edu/netlogo/) (tested with 7.0.4).
+2. Open `india_advanced_simulation.nlogo` (or run `run_model.bat` on Windows).
+3. Press `setup`, then `go`. Use the view buttons to switch map layers.
 
-### Required Files:
-- `india_boundary.shp` - Main shapefile with Indian boundary
-- `india_boundary.shx` - Shapefile index
-- `india_boundary.dbf` - Attribute table
-- `india_states.shp` - Optional: State boundaries
-- `india_states.shx` - Optional: States index
-- `india_states.dbf` - Optional: States attributes
+## History
 
-## Usage Instructions
+`CHANGELOG.md` lists the fixes that made the advanced model open and run correctly. Earlier versions and the format workaround scripts are kept in `archive/`.
 
-1. **Setup Phase**:
-   - Click the "setup" button to initialize the model
-   - The model will automatically load GIS data if available
-   - If shapefiles are not found, a basic India outline will be created
+## Author
 
-2. **Simulation Phase**:
-   - Click "go" to start the simulation
-   - Watch agents move around the map
-   - Use "go" button for single steps or "go forever" for continuous simulation
-
-3. **Interaction**:
-   - Click on any part of the map to get information about that location
-   - Use "reset-colors" to restore original map colors
-
-## Customization
-
-### Adding More Cities
-Modify the `create-major-cities` procedure to add more cities:
-
-```netlogo
-create-cities 1 [
-  set city-name "Your City Name"
-  set population 1000000
-  setxy x-coordinate y-coordinate
-  set color red
-  set size 3
-  set shape "circle"
-]
-```
-
-### Changing Agent Behavior
-Modify the `move-agent` procedure to change how agents move:
-
-```netlogo
-to move-agent
-  ; Your custom movement logic here
-end
-```
-
-### Adding New Features
-- Modify patch properties to store additional geographic information
-- Add new breeds for different types of entities
-- Implement custom visualization features
-
-## Troubleshooting
-
-1. **GIS Extension Not Found**: Ensure you're using NetLogo 6.0+ with GIS extension
-2. **Shapefile Loading Errors**: Check that shapefile paths are correct and files are in the data folder
-3. **Map Display Issues**: Verify that the coordinate system of your shapefiles is appropriate
-4. **Performance Issues**: Large shapefiles may slow down the model - consider simplifying the data
-
-## Next Steps
-
-1. **Download Real Shapefiles**: Replace the basic outline with actual Indian map data
-2. **Add More Geographic Data**: Include rivers, mountains, or other geographic features
-3. **Implement Specific Models**: Use the map as a base for demographic, economic, or environmental models
-4. **Add Data Visualization**: Display statistical data on the map using color coding
-
-## License
-
-This project is for educational purposes. Ensure you have appropriate licenses for any GIS data you use.
-
-## Support
-
-For NetLogo-specific questions, refer to the [NetLogo documentation](https://ccl.northwestern.edu/netlogo/docs/) or [NetLogo users group](https://groups.google.com/forum/#!forum/netlogo-users).
+**Ronit Jaiswal**

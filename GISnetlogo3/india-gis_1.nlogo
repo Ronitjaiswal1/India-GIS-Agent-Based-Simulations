@@ -1,79 +1,155 @@
+;; =============================================================================
+;; GADM boundary loader for India
+;; Author: Ronit Jaiswal
+;;
+;; Minimal template for map-based NetLogo models: load an administrative
+;; boundary shapefile, fit the world to it, colour each region and draw
+;; its boundaries.
+;; =============================================================================
+
 extensions [gis]
 
 globals [
   india-map
+  region-names
+]
+
+patches-own [
+  region-name
 ]
 
 to setup
   clear-all
-  set india-map gis:load-dataset "maps/gadm41_IND_1.shp" ; GADM level-1 (state) boundaries
-  gis:set-world-envelope-ds gis:envelope-of india-map
-  gis:draw india-map 0
+  let level 1
+  if boundary-level = "Districts (level 2)" [ set level 2 ]
+  if boundary-level = "Sub-districts (level 3)" [ set level 3 ]
+  let base (word "maps/gadm41_IND_" level)
+
+  gis:load-coordinate-system (word base ".prj")
+  set india-map gis:load-dataset (word base ".shp")
+  gis:set-world-envelope gis:envelope-of india-map
+
+  ;; Colour regions by the state name (NAME_1), present at every level.
+  gis:apply-coverage india-map "NAME_1" region-name
+  ask patches [ if not is-string? region-name [ set region-name "" ] ]
+  set region-names sort remove-duplicates [region-name] of patches with [region-name != ""]
+  let palette [16 26 36 46 56 66 76 86 96 106 116 126 136]
+  ask patches [
+    ifelse region-name = ""
+      [ set pcolor 102 ]
+      [ set pcolor item ((position region-name region-names) mod length palette) palette ]
+  ]
+
+  gis:set-drawing-color white
+  gis:draw india-map 0.5
+  reset-ticks
 end
+
+;; Forever button: click on the map to print the state under the mouse.
+to identify
+  if mouse-down? [
+    let p patch mouse-xcor mouse-ycor
+    if p != nobody and [region-name] of p != "" [
+      print [region-name] of p
+      wait 0.3
+    ]
+  ]
+end
+
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-647
-448
+702
+502
 -1
 -1
-13.0
+4.0
 1
 10
 1
 1
 1
 0
-1
-1
-1
--16
-16
--16
-16
 0
 0
+1
+-60
+60
+-60
+60
+1
+1
 1
 ticks
 30.0
 
+BUTTON
+10
+60
+200
+93
+setup
+setup
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+10
+98
+200
+131
+click to identify state
+identify
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+0
+
+CHOOSER
+10
+10
+200
+55
+boundary-level
+boundary-level
+"States (level 1)" "Districts (level 2)" "Sub-districts (level 3)"
+0
+
+MONITOR
+10
+140
+200
+185
+States / UTs shown
+length region-names
+0
+1
+11
 @#$#@#$#@
 ## WHAT IS IT?
 
-(a general understanding of what the model is trying to show or explain)
-
-## HOW IT WORKS
-
-(what rules the agents use to create the overall behavior of the model)
+A minimal template for map-based NetLogo models. It loads GADM 4.1 administrative boundaries of India, fits the NetLogo world to them, colours each state and draws the boundaries.
 
 ## HOW TO USE IT
 
-(how to use the model, including a description of each of the items in the Interface tab)
-
-## THINGS TO NOTICE
-
-(suggested things for the user to notice while running the model)
-
-## THINGS TO TRY
-
-(suggested things for the user to try to do (move sliders, switches, etc.) with the model)
-
-## EXTENDING THE MODEL
-
-(suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
-
-## NETLOGO FEATURES
-
-(interesting or unusual features of NetLogo that the model uses, particularly in the Code tab; or where workarounds were needed for missing features)
-
-## RELATED MODELS
-
-(models in the NetLogo Models Library and elsewhere which are of related interest)
+Choose a BOUNDARY-LEVEL (states, districts or sub-districts) and press SETUP. Turn on CLICK TO IDENTIFY STATE and click the map to print the state name.
 
 ## CREDITS AND REFERENCES
 
-(a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
+Model by Ronit Jaiswal. Boundary data: GADM 4.1 (gadm.org), free for academic and non-commercial use.
 @#$#@#$#@
 default
 true

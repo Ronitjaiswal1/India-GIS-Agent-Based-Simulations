@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<experiments>
+  <experiment name="curves" repetitions="10" sequentialRunOrder="true" runMetricsEveryStep="true" timeLimit="8640">
+    <setup>setup</setup>
+    <go>go</go>
+    <metrics>
+      <metric>count people with [status = "infected"]</metric>
+    </metrics>
+    <constants>
+      <enumeratedValueSet variable="initial-infected"><value value="5"></value></enumeratedValueSet>
+      <enumeratedValueSet variable="population"><value value="300"></value></enumeratedValueSet>
+      <enumeratedValueSet variable="max-days"><value value="60"></value></enumeratedValueSet>
+    </constants>
+    <subExperiments>
+      <subExperiment>
+        <enumeratedValueSet variable="hospital-isolation?"><value value="false"></value><value value="true"></value></enumeratedValueSet>
+        <enumeratedValueSet variable="mask-usage"><value value="0"></value><value value="50"></value></enumeratedValueSet>
+      </subExperiment>
+    </subExperiments>
+  </experiment>
+</experiments>

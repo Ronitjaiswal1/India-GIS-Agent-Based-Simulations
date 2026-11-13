@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<experiments>
+  <experiment name="scenarios" repetitions="10" sequentialRunOrder="true" runMetricsEveryStep="false" timeLimit="8640">
+    <setup>setup</setup>
+    <go>go</go>
+    <metrics>
+      <metric>day</metric>
+      <metric>count people with [status = "susceptible"]</metric>
+      <metric>count people with [status = "exposed"]</metric>
+      <metric>count people with [status = "infected"]</metric>
+      <metric>count people with [status = "recovered"]</metric>
+      <metric>peak-infected</metric>
+      <metric>peak-day</metric>
+      <metric>attack-rate</metric>
+    </metrics>
+    <constants>
+      <enumeratedValueSet variable="initial-infected"><value value="5"></value></enumeratedValueSet>
+      <enumeratedValueSet variable="population"><value value="300"></value></enumeratedValueSet>
+      <enumeratedValueSet variable="max-days"><value value="60"></value></enumeratedValueSet>
+    </constants>
+    <subExperiments>
+      <subExperiment>
+        <enumeratedValueSet variable="hospital-isolation?"><value value="false"></value><value value="true"></value></enumeratedValueSet>
+        <enumeratedValueSet variable="mask-usage"><value value="0"></value><value value="50"></value></enumeratedValueSet>
+      </subExperiment>
+    </subExperiments>
+  </experiment>
+</experiments>

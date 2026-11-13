@@ -413,7 +413,7 @@ def main():
     
     print("\\nSetup complete!")
     print("You can now open the NetLogo model file:")
-    print("  india_region_gis_model.nlogo")
+    print("india_region_gis_model.nlogo")
     print("\\nCheck the README.md file for detailed instructions.")
 
 if __name__ == "__main__":

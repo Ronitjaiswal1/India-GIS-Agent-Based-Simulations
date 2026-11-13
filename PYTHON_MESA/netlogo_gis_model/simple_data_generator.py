@@ -425,8 +425,8 @@ end
         economic_df.to_csv(economic_path, index=False)
         
         print(f"Sample scenario data created:")
-        print(f"  Migration patterns: {migration_path}")
-        print(f"  Economic indicators: {economic_path}")
+        print(f"Migration patterns: {migration_path}")
+        print(f"Economic indicators: {economic_path}")
     
     def create_readme(self):
         """Create comprehensive README file"""
@@ -612,7 +612,7 @@ def main():
     generator.create_readme()
     
     print("\\n" + "=" * 50)
-    print("✓ All data files generated successfully!")
+    print("All data files generated successfully!")
     print("\\nNext steps:")
     print("1. Download NetLogo from https://ccl.northwestern.edu/netlogo/")
     print("2. Open 'india_region_gis_model.nlogo' in NetLogo")

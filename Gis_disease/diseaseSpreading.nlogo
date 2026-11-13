@@ -1,192 +1,279 @@
+;; =============================================================================
+;; SEIR epidemic on the street network of Old Delhi (Subzi Mandi area)
+;; Author: Ronit Jaiswal
+;;
+;; One tick = 10 minutes. 144 ticks = 1 day.
+;; Residents commute between homes and workplaces along OpenStreetMap roads.
+;; Disease states: susceptible -> exposed -> infected -> recovered (SEIR).
+;; =============================================================================
+
 extensions [gis]
 
 globals [
-  road-dataset
   building-dataset
+  road-dataset
   hospital-dataset
+  hospital-patches
+  peak-infected
+  peak-day
+  total-infections
+  isolated-count
 ]
 
 breed [people person]
 
 people-own [
-  status          ; "healthy", "infected", or "recovered"
-  home-patch      ; patch where this person lives
-  workplace       ; patch where this person works
-  current-goal    ; patch this person is moving towards
+  status            ;; "susceptible", "exposed", "infected" or "recovered"
+  home-patch
+  workplace
+  current-goal
+  leave-hour        ;; hour of day this person leaves for work
+  return-hour       ;; hour of day this person heads home
+  ticks-in-state
+  state-duration    ;; ticks this person will spend in the current state
+  masked?
+  isolated?
+  stuck-ticks
 ]
 
 patches-own [
-  land-use-type   ; "commercial", "apartment", "house", etc.
+  land-use          ;; OSM "building" tag of the building covering the patch
   is-road?
+  is-hospital?
 ]
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; SETUP PROCEDURES
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; -----------------------------------------------------------------------------
+;; SETUP
+;; -----------------------------------------------------------------------------
 
 to setup
   clear-all
   setup-map
   setup-people
+  set peak-infected count people with [status = "infected"]
+  set peak-day 0
+  set total-infections initial-infected
   reset-ticks
 end
+
 to setup-map
-  ;; Load GIS datasets
   set building-dataset gis:load-dataset "map/delhi_buildings.shp"
   set road-dataset gis:load-dataset "map/delhi_roads.shp"
   set hospital-dataset gis:load-dataset "map/delhi_hospitals.shp"
+  gis:set-world-envelope (gis:envelope-union-of
+    (gis:envelope-of building-dataset) (gis:envelope-of hospital-dataset))
 
-  ;; Set the world envelope to building shapefile
-  gis:set-world-envelope gis:envelope-of building-dataset
-
-  ;; Use correct property name (change "BUILDING" if necessary)
-  gis:apply-coverage building-dataset "BUILDING" land-use-type
-
-  ;; Color patches by land use type and initialize road flag
   ask patches [
-    if land-use-type = "commercial"     [ set pcolor gray ]
-    if land-use-type = "apartment"      [ set pcolor cyan ]
-    if land-use-type = "house"          [ set pcolor brown ]
-    if land-use-type = "office"         [ set pcolor orange ]
-    if land-use-type = "hospital"       [ set pcolor red ]
-    if land-use-type = "mosque"         [ set pcolor yellow ]
-    if land-use-type = "construction"   [ set pcolor 93 ]
-    if land-use-type = "yes"            [ set pcolor 55 ]
+    set land-use ""
     set is-road? false
+    set is-hospital? false
+    set pcolor 1
   ]
 
-  ;; Draw roads
-  gis:set-drawing-color white
-  gis:draw road-dataset 1
-
-  ;; Mark patches as road where they intersect road dataset
+  ;; Land use from the OSM building tag (string; NaN where no building).
+  gis:apply-coverage building-dataset "BUILDING" land-use
   ask patches [
-    if gis:intersects? (gis:location pxcor pycor) road-dataset [
-      set is-road? true
-    ]
+    if not is-string? land-use [ set land-use "" ]
+    set pcolor land-use-color land-use
   ]
 
-  ;; Draw hospitals
+  ;; Roads: every patch touched by a road centreline.
+  ask patches gis:intersecting road-dataset [
+    set is-road? true
+    if land-use = "" [ set pcolor 3 ]
+  ]
+  gis:set-drawing-color 4
+  gis:draw road-dataset 0.5
+
+  ;; Hospital.
+  ask patches gis:intersecting hospital-dataset [
+    set is-hospital? true
+    set pcolor red - 1
+  ]
+  set hospital-patches patches with [is-hospital?]
   gis:set-drawing-color red
-  gis:draw hospital-dataset 1
+  gis:draw hospital-dataset 1.5
 end
 
+to-report residential? [lu]
+  report member? lu ["yes" "residential" "apartments" "house"]
+end
+
+to-report land-use-color [lu]
+  if residential? lu [ report 33 ]
+  if member? lu ["commercial" "retail" "market" "office" "construction"] [ report 23 ]
+  if member? lu ["school" "college" "public" "train_station"] [ report 63 ]
+  if member? lu ["mosque" "temple"] [ report 113 ]
+  if lu != "" [ report 5 ]
+  report 1
+end
 
 to setup-people
-  ;; Identify homes and workplaces.
-  let residential-patches patches with [land-use-type = "apartment" or land-use-type = "house"]
-  let commercial-patches patches with [land-use-type = "commercial" or land-use-type = "office"]
-
-  if (not any? residential-patches) or (not any? commercial-patches) [
-    user-message "Could not find apartment/house or commercial/office areas in the shapefile. Please check the 'bulding' attribute in your data."
+  let homes patches with [residential? land-use]
+  let workplaces patches with [land-use != "" and not residential? land-use]
+  ;; Most OSM buildings here are untagged ("yes"); if too few tagged
+  ;; workplaces exist, any building patch can also be a workplace.
+  if count workplaces < 20 [ set workplaces patches with [land-use != ""] ]
+  if not any? homes [
+    user-message "No residential building patches found in map/delhi_buildings.shp."
     stop
   ]
 
-  create-people 200 [
-    set home-patch one-of residential-patches
-    set workplace one-of commercial-patches
+  create-people population [
+    set home-patch one-of homes
+    set workplace one-of workplaces
     move-to home-patch
     set current-goal home-patch
-    set status "healthy"
-    set color green
-    set size 1.5
+    set leave-hour 7 + random 3
+    set return-hour 16 + random 4
+    set masked? random-float 100 < mask-usage
+    set isolated? false
+    set stuck-ticks 0
+    set shape "circle"
+    set size 1.6
+    set-status "susceptible"
   ]
-
-  ask one-of people [
-    set status "infected"
-    set color red
-  ]
+  ask n-of (min list initial-infected population) people [ set-status "infected" ]
 end
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; RUNTIME PROCEDURES
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; -----------------------------------------------------------------------------
+;; MAIN LOOP
+;; -----------------------------------------------------------------------------
 
 to go
-  let time ticks mod 24
+  if not any? people with [status = "exposed" or status = "infected"] [ stop ]
+  if ticks >= max-days * 144 [ stop ]
 
-  ask people [
-    if time = 8  [ set current-goal workplace ]
-    if time = 17 [ set current-goal home-patch ]
-    move-on-roads
+  let hour floor ((ticks mod 144) / 6)
+  ask people with [not isolated?] [
+    if hour = leave-hour [ set current-goal workplace ]
+    if hour = return-hour [ set current-goal home-patch ]
+    repeat walk-speed [ move-step ]
   ]
+  transmit
+  progress-disease
 
-  spread-disease
-  update-agent-appearance
+  let n-infected count people with [status = "infected"]
+  if n-infected > peak-infected [
+    set peak-infected n-infected
+    set peak-day ticks / 144
+  ]
+  set isolated-count count people with [isolated?]
   tick
 end
 
-to move-on-roads
-  if patch-here != current-goal [
-    ;; Step 1. Move to nearest road if not on a road.
-    if not is-road? [
-      let nearest-road min-one-of patches with [is-road?] [distance myself]
-      if nearest-road != nobody [
-        move-to nearest-road
-      ]
-    ]
-    ;; Step 2. Preferentially move along road patches toward destination.
-    let possible-roads patches with [is-road?] in-cone 10 2
-    if any? possible-roads [
-      let target-road min-one-of possible-roads [distance current-goal]
-      if target-road != nobody [
-        move-to target-road
+;; Greedy walk along road patches toward the current goal. Steps off-road
+;; only to enter the destination building, or to cut across when stuck in
+;; a gap of the road network.
+to move-step
+  if patch-here = current-goal [ stop ]
+  let goal current-goal
+  let options neighbors with [is-road? or self = goal]
+  let here-dist distance goal
+  let better options with [distance goal < here-dist]
+  ifelse any? better [
+    move-to min-one-of better [distance goal]
+    set stuck-ticks 0
+  ] [
+    set stuck-ticks stuck-ticks + 1
+    ifelse any? options and stuck-ticks < 4
+      [ move-to one-of options ]
+      [ face goal fd 1 ]
+  ]
+end
+
+;; Infectious, non-isolated people expose susceptible people sharing their patch.
+to transmit
+  ask people with [status = "infected" and not isolated?] [
+    let source-factor ifelse-value masked? [0.5] [1.0]
+    ask other people-here with [status = "susceptible"] [
+      let p transmission-chance / 100 * source-factor
+      if masked? [ set p p * 0.7 ]
+      if random-float 1 < p [
+        set-status "exposed"
+        set total-infections total-infections + 1
       ]
     ]
   ]
 end
 
-to spread-disease
-  ask people with [status = "infected"] [
-    let nearby-healthy people-here with [status = "healthy"]
-    ask nearby-healthy [
-      if random-float 100 < 25 [
-        set status "infected"
-      ]
-    ]
-  ]
-end
-
-to update-agent-appearance
+to progress-disease
   ask people [
-    if status = "infected"   [ set color red ]
-    if status = "healthy"    [ set color green ]
-    if status = "recovered"  [ set color blue ]
+    set ticks-in-state ticks-in-state + 1
+    if status = "exposed" and ticks-in-state >= state-duration [ set-status "infected" ]
+    if status = "infected" [
+      ;; Symptomatic people isolate in hospital one day after symptoms start.
+      if hospital-isolation? and not isolated? and ticks-in-state >= 144
+         and any? hospital-patches [
+        set isolated? true
+        move-to one-of hospital-patches
+      ]
+      if ticks-in-state >= state-duration [
+        set-status "recovered"
+        if isolated? [
+          set isolated? false
+          move-to home-patch
+          set current-goal home-patch
+        ]
+      ]
+    ]
   ]
 end
+
+to set-status [s]
+  set status s
+  set ticks-in-state 0
+  if s = "susceptible" [ set color white      set state-duration 0 ]
+  if s = "exposed"     [ set color yellow     set state-duration round (144 * incubation-days * (0.5 + random-float 1)) ]
+  if s = "infected"    [ set color red        set state-duration round (144 * recovery-days * (0.5 + random-float 1)) ]
+  if s = "recovered"   [ set color cyan       set state-duration 0 ]
+end
+
+;; -----------------------------------------------------------------------------
+;; REPORTERS
+;; -----------------------------------------------------------------------------
+
+to-report day
+  report ticks / 144
+end
+
+to-report attack-rate
+  report 100 * (count people with [status != "susceptible"]) / count people
+end
+
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-647
-448
+823
+543
 -1
 -1
-13.0
+5.0
 1
 10
 1
 1
 1
 0
-1
-1
-1
--16
-16
--16
-16
 0
 0
+1
+-60
+60
+-52
+52
+1
+1
 1
 ticks
 30.0
 
 BUTTON
-27
-63
-90
-96
+10
+10
+70
+43
 setup
 setup
 NIL
@@ -200,13 +287,30 @@ NIL
 1
 
 BUTTON
-27
-102
-90
+75
+10
 135
-NIL
+43
+go
 go
 T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+0
+
+BUTTON
+140
+10
+200
+43
+step
+go
+NIL
 1
 T
 OBSERVER
@@ -216,80 +320,309 @@ NIL
 NIL
 1
 
-BUTTON
-26
+SLIDER
+10
+50
+200
+83
+population
+population
+50
+1000
+300
+10
+1
+NIL
+HORIZONTAL
+
+SLIDER
+10
+88
+200
+121
+initial-infected
+initial-infected
+1
+30
+3
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+10
+126
+200
 159
-89
-192
-NIL
-go
-NIL
+transmission-chance
+transmission-chance
+0
+30
+5
+0.5
 1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
+%
+HORIZONTAL
+
+SLIDER
+10
+164
+200
+197
+incubation-days
+incubation-days
 1
+10
+3
+0.5
+1
+days
+HORIZONTAL
+
+SLIDER
+10
+202
+200
+235
+recovery-days
+recovery-days
+2
+21
+7
+1
+1
+days
+HORIZONTAL
+
+SLIDER
+10
+240
+200
+273
+mask-usage
+mask-usage
+0
+100
+0
+5
+1
+%
+HORIZONTAL
+
+SLIDER
+10
+278
+200
+311
+walk-speed
+walk-speed
+1
+20
+8
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+10
+316
+200
+349
+max-days
+max-days
+5
+120
+60
+5
+1
+days
+HORIZONTAL
+
+SWITCH
+10
+354
+200
+387
+hospital-isolation?
+hospital-isolation?
+1
+1
+-1000
+
+MONITOR
+835
+10
+935
+55
+Day
+day
+1
+1
+11
+
+MONITOR
+940
+10
+1040
+55
+Susceptible
+count people with [status = "susceptible"]
+0
+1
+11
+
+MONITOR
+835
+60
+935
+105
+Exposed
+count people with [status = "exposed"]
+0
+1
+11
+
+MONITOR
+940
+60
+1040
+105
+Infected
+count people with [status = "infected"]
+0
+1
+11
+
+MONITOR
+835
+110
+935
+155
+Recovered
+count people with [status = "recovered"]
+0
+1
+11
+
+MONITOR
+940
+110
+1040
+155
+In hospital
+isolated-count
+0
+1
+11
+
+MONITOR
+835
+160
+935
+205
+Peak infected
+peak-infected
+0
+1
+11
+
+MONITOR
+940
+160
+1040
+205
+Peak day
+peak-day
+1
+1
+11
+
+MONITOR
+835
+210
+935
+255
+Attack rate %
+attack-rate
+1
+1
+11
+
+MONITOR
+940
+210
+1040
+255
+Total infections
+total-infections
+0
+1
+11
 
 PLOT
-9
-430
-209
-580
-Disease  Status
-NIL
-Number  of people
+835
+265
+1185
+543
+SEIR epidemic curve
+days
+people
 0.0
 10.0
 0.0
 10.0
 true
-false
+true
 "" ""
 PENS
-"default" 1.0 0 -16777216 true "" "plot count turtles"
-"pen-1" 1.0 0 -10899396 true "" "plot count people with [status = \"healthy\"]"
-"pen-2" 1.0 0 -2674135 true "" "plot count people with [status = \"infected\"]"
-"pen-3" 1.0 0 -13345367 true "" "plot count people with [status = \"recovered\"] "
-
+"susceptible" 1.0 0 -7500403 true "" "plotxy day count people with [status = \"susceptible\"]"
+"exposed" 1.0 0 -1184463 true "" "plotxy day count people with [status = \"exposed\"]"
+"infected" 1.0 0 -2674135 true "" "plotxy day count people with [status = \"infected\"]"
+"recovered" 1.0 0 -11221820 true "" "plotxy day count people with [status = \"recovered\"]"
 @#$#@#$#@
 ## WHAT IS IT?
 
-(a general understanding of what the model is trying to show or explain)
+An SEIR (susceptible, exposed, infected, recovered) epidemic model set in the Subzi Mandi area of Old Delhi. Building footprints and the street network come from OpenStreetMap. Residents live in residential buildings, commute along real streets to workplaces, schools and markets each day, and return home in the evening. Infection spreads through close contact on the same patch: on the street, at work and inside shared homes.
 
 ## HOW IT WORKS
 
-(what rules the agents use to create the overall behavior of the model)
+- One tick is 10 minutes; 144 ticks make one day.
+- Each person has a home, a workplace, a departure hour (07:00 to 09:00) and a return hour (16:00 to 19:00).
+- People walk along road patches towards their current goal using a greedy route, stepping off-road only to enter their destination or to cross gaps in the road network.
+- An infected person exposes each susceptible person on the same patch with probability TRANSMISSION-CHANCE per tick. Masks halve the chance of passing on infection and reduce the chance of catching it by 30 percent.
+- Exposed people become infectious after an incubation period, and infected people recover (with immunity) after a recovery period. Both periods vary randomly between 50 and 150 percent of the slider value.
+- With HOSPITAL-ISOLATION? on, infected people are isolated in the Northern Railway Hospital one day after symptoms start and stop transmitting.
 
 ## HOW TO USE IT
 
-(how to use the model, including a description of each of the items in the Interface tab)
+Set the sliders, press SETUP to load the map and residents, then GO. The simulation stops when no exposed or infected people remain, or after MAX-DAYS.
 
 ## THINGS TO NOTICE
 
-(suggested things for the user to notice while running the model)
+- Household clusters: several people share each home patch, so infection jumps between commuters and their families overnight.
+- The epidemic curve peaks and declines as susceptible people run out.
 
 ## THINGS TO TRY
 
-(suggested things for the user to try to do (move sliders, switches, etc.) with the model)
+- Compare the peak and the attack rate with HOSPITAL-ISOLATION? off and on.
+- Increase MASK-USAGE in steps of 25 percent and watch the peak flatten and shift later.
+- Change POPULATION to see how density changes transmission.
 
 ## EXTENDING THE MODEL
 
-(suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
-
-## NETLOGO FEATURES
-
-(interesting or unusual features of NetLogo that the model uses, particularly in the Code tab; or where workarounds were needed for missing features)
-
-## RELATED MODELS
-
-(models in the NetLogo Models Library and elsewhere which are of related interest)
+- Age groups with different severity, hospital capacity limits and deaths.
+- Vaccination campaigns and lockdowns triggered by case counts.
+- Shortest-path routing on the road graph instead of greedy movement.
 
 ## CREDITS AND REFERENCES
 
-(a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
+Model by Ronit Jaiswal.
+
+Map data (buildings, roads, hospital) from OpenStreetMap contributors, available under the Open Database License (ODbL).
+
+Wilensky, U. (1999). NetLogo. Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
 @#$#@#$#@
 default
 true

@@ -146,7 +146,7 @@ class IndiaGISModel:
 def visualize_model(model):
     """Create visualization of the model"""
     fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-    fig.suptitle('🇮🇳 India GIS Model - Agent-Based Simulation', fontsize=16, fontweight='bold')
+    fig.suptitle('India GIS Model - Agent-Based Simulation', fontsize=16, fontweight='bold')
     
     # Plot 1: Current state map with agents
     ax1 = axes[0, 0]
@@ -177,7 +177,7 @@ def visualize_model(model):
         x, y = agent.pos
         ax1.scatter(x, y, c='blue', s=20, alpha=0.8, edgecolors='white', linewidth=0.5)
     
-    ax1.set_title('🗺️ People Distribution Across Indian States')
+    ax1.set_title('People Distribution Across Indian States')
     ax1.set_xlabel('X Coordinate')
     ax1.set_ylabel('Y Coordinate')
     ax1.grid(True, alpha=0.3)
@@ -194,12 +194,12 @@ def visualize_model(model):
         sorted_states = sorted(state_counts.items(), key=lambda x: x[1], reverse=True)
         states = [item[0] for item in sorted_states]
         counts = [item[1] for item in sorted_states]
-        colors = [model.state_boundaries[state]["color"] for state in states]
+        colors = [model.state_boundaries.get(state, {"color": "lightgray"})["color"] for state in states]
         
         bars = ax2.bar(range(len(states)), counts, color=colors, alpha=0.7, edgecolor='black')
         ax2.set_xticks(range(len(states)))
         ax2.set_xticklabels(states, rotation=45, ha='right')
-        ax2.set_title('👥 Current Population by State')
+        ax2.set_title('Current Population by State')
         ax2.set_ylabel('Number of People')
         
         # Add value labels on bars
@@ -220,7 +220,7 @@ def visualize_model(model):
                 values = df[state].fillna(0)
                 ax3.plot(df['step'], values, label=state, linewidth=2, marker='o', markersize=4)
         
-        ax3.set_title('📈 Population Movement Over Time')
+        ax3.set_title('Population Movement Over Time')
         ax3.set_xlabel('Simulation Step')
         ax3.set_ylabel('Number of People')
         ax3.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
@@ -228,7 +228,7 @@ def visualize_model(model):
     else:
         ax3.text(0.5, 0.5, 'No data available\\nRun simulation first', 
                 ha='center', va='center', transform=ax3.transAxes, fontsize=12)
-        ax3.set_title('📈 Population Movement Over Time')
+        ax3.set_title('Population Movement Over Time')
     
     # Plot 4: Mobility analysis
     ax4 = axes[1, 1]
@@ -238,7 +238,7 @@ def visualize_model(model):
     ax4.hist(mobility_data, bins=20, alpha=0.7, color='skyblue', edgecolor='black')
     ax4.axvline(np.mean(mobility_data), color='red', linestyle='--', linewidth=2, 
                label=f'Mean: {np.mean(mobility_data):.2f}')
-    ax4.set_title('🚶 Mobility Factor Distribution')
+    ax4.set_title('Mobility Factor Distribution')
     ax4.set_xlabel('Mobility Factor')
     ax4.set_ylabel('Number of People')
     ax4.legend()
@@ -249,14 +249,14 @@ def visualize_model(model):
 
 def run_simulation(steps=30):
     """Run the simulation"""
-    print("🇮🇳 Starting India GIS Simulation...")
+    print("Starting India GIS Simulation...")
     
     # Create model
     model = IndiaGISModel(width=50, height=50, num_people=150)
     
-    print(f"✅ Created model with {model.num_people} people")
-    print(f"📊 States included: {len(model.states_data)} states")
-    print(f"🗺️ Grid size: {model.width} x {model.height}")
+    print(f"Created model with {model.num_people} people")
+    print(f"States included: {len(model.states_data)} states")
+    print(f"Grid size: {model.width} x {model.height}")
     
     # Initial state distribution
     initial_counts = {}
@@ -264,30 +264,30 @@ def run_simulation(steps=30):
         state = agent.current_state
         initial_counts[state] = initial_counts.get(state, 0) + 1
     
-    print(f"\\n📍 Initial distribution:")
+    print(f"\\n Initial distribution:")
     for state, count in sorted(initial_counts.items(), key=lambda x: x[1], reverse=True):
-        print(f"   {state}: {count} people")
+        print(f"{state}: {count} people")
     
     # Run simulation
-    print(f"\\n🏃 Running simulation for {steps} steps...")
+    print(f"\\n Running simulation for {steps} steps...")
     for i in range(steps):
         model.step()
         if i % 10 == 0:
-            print(f"   Step {i+1}/{steps} completed")
+            print(f"Step {i+1}/{steps} completed")
     
-    print(f"🎉 Simulation completed! Total steps: {steps}")
+    print(f"Simulation completed! Total steps: {steps}")
     return model
 
 def analyze_results(model):
     """Analyze and display simulation results"""
     print("\\n" + "="*60)
-    print("📊 SIMULATION ANALYSIS")
+    print("SIMULATION ANALYSIS")
     print("="*60)
     
     # Agent statistics
     total_agents = len(model.people_agents)
-    print(f"👥 Total People: {total_agents}")
-    print(f"🏃 Simulation Steps: {model.step_count}")
+    print(f"Total People: {total_agents}")
+    print(f"Simulation Steps: {model.step_count}")
     
     # Final state distribution
     final_counts = {}
@@ -295,7 +295,7 @@ def analyze_results(model):
         state = agent.current_state
         final_counts[state] = final_counts.get(state, 0) + 1
     
-    print("\\n🏛️ FINAL POPULATION BY STATE:")
+    print("\\n FINAL POPULATION BY STATE:")
     print("-" * 50)
     for state, count in sorted(final_counts.items(), key=lambda x: x[1], reverse=True):
         percentage = (count / total_agents) * 100
@@ -306,7 +306,7 @@ def analyze_results(model):
     high_mobility = sum(1 for x in mobility_data if x > 0.7)
     low_mobility = sum(1 for x in mobility_data if x < 0.3)
     
-    print(f"\\n🚶 MOBILITY ANALYSIS:")
+    print(f"\\n MOBILITY ANALYSIS:")
     print("-" * 50)
     print(f"High mobility (>0.7): {high_mobility} people ({high_mobility/total_agents*100:.1f}%)")
     print(f"Low mobility (<0.3): {low_mobility} people ({low_mobility/total_agents*100:.1f}%)")
@@ -315,7 +315,7 @@ def analyze_results(model):
     # Movement analysis
     if model.data_history:
         df = model.get_data_frame()
-        print(f"\\n📈 DATA COLLECTION:")
+        print(f"\\n DATA COLLECTION:")
         print("-" * 50)
         print(f"Data points collected: {len(df)}")
         
@@ -324,7 +324,7 @@ def analyze_results(model):
             first_step = df.iloc[0]
             last_step = df.iloc[-1]
             
-            print(f"\\n📊 POPULATION CHANGES:")
+            print(f"\\n POPULATION CHANGES:")
             print("-" * 50)
             for state in model.states_data.keys():
                 if state in first_step and state in last_step:
@@ -336,7 +336,7 @@ def analyze_results(model):
 
 def main():
     """Main execution function"""
-    print("🚀 India GIS Model - Python Version (WORKING!)")
+    print("India GIS Model - Python Version (WORKING!)")
     print("=" * 60)
     
     # Run simulation
@@ -346,23 +346,23 @@ def main():
     analyze_results(model)
     
     # Create visualizations
-    print("\\n🎨 Creating visualizations...")
+    print("\\n Creating visualizations...")
     fig = visualize_model(model)
     
     # Save plots
     fig.savefig('india_gis_simulation.png', dpi=300, bbox_inches='tight')
-    print("💾 Visualization saved as: india_gis_simulation.png")
+    print("Visualization saved as: india_gis_simulation.png")
     
     # Show plots
     plt.show()
     
     # Export data
-    print("\\n📁 Exporting data...")
+    print("\\n Exporting data...")
     
     # Simulation data
     df = model.get_data_frame()
     df.to_csv('simulation_data.csv', index=False)
-    print("💾 Simulation data exported to: simulation_data.csv")
+    print("Simulation data exported to: simulation_data.csv")
     
     # Agent data
     agent_data = []
@@ -378,22 +378,22 @@ def main():
     
     df_agents = pd.DataFrame(agent_data)
     df_agents.to_csv('agent_data.csv', index=False)
-    print("💾 Agent data exported to: agent_data.csv")
+    print("Agent data exported to: agent_data.csv")
     
-    print("\\n🎉 SUCCESS! Simulation completed successfully!")
-    print("📊 Files created:")
-    print("   📄 india_gis_simulation.png - Beautiful visualization")
-    print("   📄 simulation_data.csv - Time series data")
-    print("   📄 agent_data.csv - Individual agent information")
+    print("\\n SUCCESS! Simulation completed successfully!")
+    print("Files created:")
+    print("india_gis_simulation.png - Beautiful visualization")
+    print("simulation_data.csv - Time series data")
+    print("agent_data.csv - Individual agent information")
     
-    print("\\n💡 This demonstrates NetLogo-style modeling in Python!")
-    print("✅ Advantages:")
-    print("   • No NetLogo installation needed")
-    print("   • Runs directly in VS Code")
-    print("   • Full Python data science capabilities")
-    print("   • Better visualizations and analysis")
-    print("   • Easy to extend and modify")
-    print("   • Can integrate with other Python libraries")
+    print("\\n This demonstrates NetLogo-style modeling in Python!")
+    print("Advantages:")
+    print("• No NetLogo installation needed")
+    print("• Runs directly in VS Code")
+    print("• Full Python data science capabilities")
+    print("• Better visualizations and analysis")
+    print("• Easy to extend and modify")
+    print("• Can integrate with other Python libraries")
     
     return model
 

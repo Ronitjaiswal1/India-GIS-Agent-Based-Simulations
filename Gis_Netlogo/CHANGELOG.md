@@ -2,6 +2,22 @@
 
 All notable changes to the NetLogo Indian Map Project will be documented in this file.
 
+## [2.0.0] - 2026-11-13
+
+### Fixed
+- The advanced model was stored in an XML layout that no NetLogo version can open. It is now `india_advanced_simulation.nlogo` in the standard format, and it compiles and runs in NetLogo 7.0.4 (tested headless).
+- Compile errors in the advanced model: patch and breed variables with the same name, missing link breeds for highways and railways, and an `if` with two branches.
+- Runaway dynamics: city growth decayed to zero each tick (driving unemployment to 90 percent), population and GDP compounded an annual rate every month, and city icons grew until they covered the map.
+- Sea patches were treated as land because patches outside every polygon hold NaN, not 0 or "".
+- The models looked for `data/india_boundary.shp`, which does not exist; they now load `map/india_boundary.shp`.
+- Cities were placed at fixed grid positions; they are now placed at their real latitude and longitude.
+
+### Added
+- States coloured individually in `final_netlogo_model.nlogo`, travellers moving between cities, click-to-inspect, and plots and view buttons in the advanced model.
+
+### Moved
+- Superseded files (the unopenable XML model, format workaround scripts and earlier drafts) to `archive/`.
+
 ## [1.0.0] - 2025-07-17
 
 ### Added

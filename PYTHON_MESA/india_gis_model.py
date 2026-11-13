@@ -43,8 +43,11 @@ class Person(mesa.Agent):
             
             self.model.grid.move_agent(self, (new_x, new_y))
         else:
-            # Random movement
-            self.model.grid.move_agent(self, self.model.grid.get_random_empty_cell())
+            # Random walk (continuous space has no cells, so take a small step)
+            x, y = self.pos
+            new_x = max(0, min(self.model.grid.width - 1, x + random.uniform(-1, 1)))
+            new_y = max(0, min(self.model.grid.height - 1, y + random.uniform(-1, 1)))
+            self.model.grid.move_agent(self, (new_x, new_y))
 
 class City(mesa.Agent):
     """A city agent representing major Indian cities"""
@@ -361,57 +364,57 @@ def create_visualization(model: IndiaGISModel, display_mode: str = "states") -> 
 
 def run_simulation(steps: int = 10) -> IndiaGISModel:
     """Run the simulation for specified steps"""
-    print("🇮🇳 Starting India GIS Simulation...")
+    print("Starting India GIS Simulation...")
     
     # Create model
     model = IndiaGISModel(width=80, height=60, num_people=200)
     
-    print(f"✅ Created model with {len(model.people)} people and {len(model.cities)} cities")
-    print(f"📊 States included: {', '.join(model.states_data.keys())}")
+    print(f"Created model with {len(model.people)} people and {len(model.cities)} cities")
+    print(f"States included: {', '.join(model.states_data.keys())}")
     
     # Run simulation
     for i in range(steps):
         model.step()
         if i % 5 == 0:
-            print(f"📈 Step {i+1}/{steps} completed")
+            print(f"Step {i+1}/{steps} completed")
     
-    print(f"🎉 Simulation completed! Total steps: {steps}")
+    print(f"Simulation completed! Total steps: {steps}")
     return model
 
 def analyze_results(model: IndiaGISModel):
     """Analyze and display simulation results"""
     print("\n" + "="*50)
-    print("📊 SIMULATION ANALYSIS")
+    print("SIMULATION ANALYSIS")
     print("="*50)
     
     # Overall statistics
-    print(f"🏙️  Total Cities: {len(model.cities)}")
-    print(f"👥 Total People Agents: {len(model.people)}")
-    print(f"🗺️  Total States: {len(model.states_data)}")
+    print(f"Total Cities: {len(model.cities)}")
+    print(f"Total People Agents: {len(model.people)}")
+    print(f"Total States: {len(model.states_data)}")
     
     # State analysis
-    print("\n🏛️  STATE ANALYSIS:")
+    print("\n  STATE ANALYSIS:")
     print("-" * 40)
     
     for state_name in model.states_data.keys():
         analysis = model.analyze_state(state_name)
-        print(f"📍 {state_name}:")
-        print(f"   Population: {analysis['population']:,}")
-        print(f"   Density: {analysis['density']} per km²")
-        print(f"   Cities: {', '.join(analysis['city_names'])}")
-        print(f"   Agent Count: {analysis['people_agents']}")
+        print(f"{state_name}:")
+        print(f"Population: {analysis['population']:,}")
+        print(f"Density: {analysis['density']} per km²")
+        print(f"Cities: {', '.join(analysis['city_names'])}")
+        print(f"Agent Count: {analysis['people_agents']}")
         print()
     
     # Data collection results
     data = model.datacollector.get_model_vars_dataframe()
     if not data.empty:
-        print("📈 SIMULATION TRENDS:")
+        print("SIMULATION TRENDS:")
         print("-" * 40)
         print(data.describe())
 
 def main():
     """Main execution function"""
-    print("🚀 India GIS Model - Python Version")
+    print("India GIS Model - Python Version")
     print("=" * 50)
     
     # Run simulation
@@ -421,23 +424,23 @@ def main():
     analyze_results(model)
     
     # Create visualizations
-    print("\n🎨 Creating visualizations...")
+    print("\n Creating visualizations...")
     
     # States view
     fig1 = create_visualization(model, "states")
     fig1.savefig('india_states_view.png', dpi=300, bbox_inches='tight')
-    print("💾 Saved: india_states_view.png")
+    print("Saved: india_states_view.png")
     
     # Population view
     fig2 = create_visualization(model, "population")
     fig2.savefig('india_population_view.png', dpi=300, bbox_inches='tight')
-    print("💾 Saved: india_population_view.png")
+    print("Saved: india_population_view.png")
     
     # Show plots
     plt.show()
     
     # Export data
-    print("\n📁 Exporting data...")
+    print("\n Exporting data...")
     
     # Model data
     model_data = []
@@ -453,10 +456,10 @@ def main():
     
     df = pd.DataFrame(model_data)
     df.to_csv('india_model_data.csv', index=False)
-    print("💾 Saved: india_model_data.csv")
+    print("Saved: india_model_data.csv")
     
-    print("\n🎉 Simulation completed successfully!")
-    print("📊 Check the generated PNG files and CSV data")
+    print("\n Simulation completed successfully!")
+    print("Check the generated PNG files and CSV data")
     
     return model
 
